@@ -1,0 +1,21 @@
+{
+  "name": "vibers",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "바이버스(Vibers) — 바이브 코딩 작품 쇼케이스 + 상업 라이선스 마켓",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.8"
+  }
+}

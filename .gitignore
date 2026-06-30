@@ -1,0 +1,21 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# 환경 변수 — anon 키가 들어가므로 절대 커밋하지 마세요.
+.env
+.env.local
+.env.*.local
+
+# 로그/캐시
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vite
+
+# 에디터
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
