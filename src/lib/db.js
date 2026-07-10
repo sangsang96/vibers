@@ -251,9 +251,12 @@ export async function fetchUsers() {
 // 브라우저(anon)로는 남의 계정을 못 지우므로, 서버(Edge Function)에서
 // "요청자가 admin 인지" 확인한 뒤 auth 계정까지 삭제한다.
 // 함수 배포 방법: supabase/functions/delete-user/README 및 ADMIN_SETUP.md 참고.
+// 주의: Supabase에 배포된 함수 slug 가 'swift-handler'(대시보드 기본 생성 이름)라서
+// 여기서 그 이름으로 호출합니다. 나중에 'delete-user'로 재배포하면 이 문자열만 바꾸면 됩니다.
+export const DELETE_USER_FN = "swift-handler";
 export async function deleteUser(userId) {
   if (isMock) return; // 미리보기 모드에선 실제 삭제 없음
-  const { data, error } = await supabase.functions.invoke("delete-user", { body: { userId } });
+  const { data, error } = await supabase.functions.invoke(DELETE_USER_FN, { body: { userId } });
   if (error) throw error;
   if (data && data.error) throw new Error(data.error);
   return data;
