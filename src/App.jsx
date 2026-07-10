@@ -13,7 +13,8 @@ import * as db from "./lib/db";
 //  실제 연동 방법은 SUPABASE_SETUP.md 를 참고하세요.
 // ============================================================
 
-const CATS = ["전체", "웹앱", "모바일", "자동화/봇", "크롬확장", "AI도구", "기타"];
+// 카테고리는 이제 관리자가 편집 가능 → DB에서 불러옴. 이건 기본값(폴백).
+const DEFAULT_CATS = ["웹앱", "모바일", "자동화/봇", "크롬확장", "AI도구", "기타"];
 const STACKS = ["React", "Next.js", "Python", "n8n", "LangGraph", "Supabase", "Flutter", "TypeScript"];
 
 function useIsMobile(bp = 720) {
@@ -80,6 +81,8 @@ export default function App() {
   const [cat, setCat] = useState("전체");
   const [toast, setToast] = useState("");
   const [liked, setLiked] = useState({});      // { [작품id]: true } — 내가 누른 작품
+  const [saved, setSaved] = useState({});       // { [작품id]: true } — 내가 보관한 작품
+  const [cats, setCats] = useState(DEFAULT_CATS); // 카테고리 목록(관리자 편집)
   const [comments, setComments] = useState({}); // { [작품id]: [{id, who, text}] }
   const [authNext, setAuthNext] = useState(null); // 로그인 후 돌아갈 view
   const [stats, setStats] = useState(null);   // 관리자 통계
@@ -95,15 +98,19 @@ export default function App() {
     db.fetchProjects()
       .then((rows) => { if (active) setItems(rows); })
       .catch(() => { if (active) flash("작품을 불러오지 못했습니다. (테이블이 생성됐는지 확인)"); });
+    db.fetchCategories().then((cs) => { if (active && cs.length) setCats(cs); }).catch(() => {});
     return () => { active = false; };
   }, []);
 
-  // 로그인 상태가 바뀌면 내가 누른 좋아요를 다시 읽는다.
+  // 로그인 상태가 바뀌면 내가 누른 좋아요 / 보관한 작품을 다시 읽는다.
   useEffect(() => {
     let active = true;
-    if (!user) { setLiked({}); return; }
+    if (!user) { setLiked({}); setSaved({}); return; }
     db.fetchMyLikes(user.id).then((ids) => {
       if (active) setLiked(Object.fromEntries(ids.map((id) => [id, true])));
+    }).catch(() => {});
+    db.fetchMyBookmarks(user.id).then((ids) => {
+      if (active) setSaved(Object.fromEntries(ids.map((id) => [id, true])));
     }).catch(() => {});
     return () => { active = false; };
   }, [user]);
@@ -191,6 +198,30 @@ export default function App() {
     });
   };
 
+  // 보관함 저장/해제 (로그인 필요) — 화면 먼저 바꾸고 서버 반영
+  const toggleSave = (id) => {
+    if (!requireAuth("feed")) return;
+    const on = !!saved[id];
+    setSaved((s) => { const n = { ...s }; if (on) delete n[id]; else n[id] = true; return n; });
+    db.toggleBookmark(id, user.id, on).catch(() => {
+      setSaved((s) => { const n = { ...s }; if (on) n[id] = true; else delete n[id]; return n; });
+      flash("보관 처리에 실패했습니다");
+    });
+    flash(on ? "보관함에서 뺐어요" : "보관함에 담았어요");
+  };
+
+  // 관리자: 카테고리 추가/삭제
+  const addCat = async (name) => {
+    const n = name.trim();
+    if (!n || cats.includes(n)) return;
+    try { await db.addCategory(n); setCats((c) => [...c, n]); flash("카테고리를 추가했어요"); }
+    catch { flash("카테고리 추가 실패 (권한 확인)"); }
+  };
+  const deleteCat = async (name) => {
+    try { await db.deleteCategory(name); setCats((c) => c.filter((x) => x !== name)); flash("카테고리를 삭제했어요"); }
+    catch { flash("카테고리 삭제 실패 (권한 확인)"); }
+  };
+
   const addComment = async (id, text) => {
     if (!requireAuth("detail")) return;
     try {
@@ -219,7 +250,7 @@ export default function App() {
       <div style={S.grain} />
       {isMock && <MockBanner />}
       <Header
-        view={view} setView={setView}
+        view={view} setView={setView} savedCount={Object.keys(saved).length}
         user={user} username={username} isAdmin={isAdmin}
         onShare={() => requireAuth("share") && setView("share")}
         onLogout={logout}
@@ -227,20 +258,25 @@ export default function App() {
       />
       <main style={S.main}>
         {view === "feed" && (
-          <Feed list={filtered} q={q} setQ={setQ} cat={cat} setCat={setCat}
-            onOpen={openDetail} onLike={like} liked={liked} total={items.length} />
+          <Feed list={filtered} q={q} setQ={setQ} cat={cat} setCat={setCat} cats={cats}
+            onOpen={openDetail} onLike={like} liked={liked} onSave={toggleSave} saved={saved} total={items.length} />
+        )}
+        {view === "saved" && (
+          <Bookmarks list={items.filter((p) => saved[p.id])} onOpen={openDetail}
+            onLike={like} liked={liked} onSave={toggleSave} saved={saved} />
         )}
         {view === "detail" && sel && (
           <Detail p={items.find((x) => x.id === sel.id) || sel} onBack={() => setView("feed")}
             onLike={like} liked={liked} comments={comments[sel.id] || []} onComment={addComment}
-            onTrack={trackClick} isMobile={isMobile} canWrite={!!user} />
+            onTrack={trackClick} isMobile={isMobile} canWrite={!!user}
+            onSave={toggleSave} isSaved={!!saved[sel.id]} />
         )}
         {view === "auth" && (
           <Auth onDone={() => { setView(authNext || "feed"); setAuthNext(null); flash("환영합니다 🎉"); }}
             onCancel={() => setView("feed")} />
         )}
         {view === "share" && (
-          <Share builder={username} onSubmit={async (proj) => {
+          <Share builder={username} cats={cats} onSubmit={async (proj) => {
             try {
               const row = await db.insertProject({ ...proj, hue: (proj.title.length * 37) % 360 }, user.id);
               setItems((ps) => [row, ...ps]);
@@ -252,7 +288,8 @@ export default function App() {
         {view === "admin" && (
           <Admin isAdmin={isAdmin} user={user} onGoLogin={() => { setAuthNext("admin"); setView("auth"); }}
             items={items} allComments={adminComments} onDeleteItem={deleteItem} onDeleteComment={deleteComment}
-            stats={stats} users={users} onDeleteUser={deleteUser} />
+            stats={stats} users={users} onDeleteUser={deleteUser}
+            cats={cats} onAddCat={addCat} onDeleteCat={deleteCat} />
         )}
       </main>
       {toast && <div style={S.toast} className="toast-in">{toast}</div>}
@@ -274,7 +311,7 @@ function MockBanner() {
   );
 }
 
-function Header({ view, setView, user, username, isAdmin, onShare, onLogout, onLogin }) {
+function Header({ view, setView, savedCount, user, username, isAdmin, onShare, onLogout, onLogin }) {
   const Tab = ({ id, label, badge }) => (
     <button onClick={() => setView(id)} className="tab"
       style={{ ...S.tab, ...(view === id ? S.tabActive : {}) }}>
@@ -308,6 +345,7 @@ function Header({ view, setView, user, username, isAdmin, onShare, onLogout, onL
       </div>
       <nav style={S.nav} className="tabscroll">
         <Tab id="feed" label="쇼케이스" />
+        <Tab id="saved" label="보관함" badge={savedCount || null} />
         <Tab id="mine" label="내 작품" />
       </nav>
     </header>
@@ -479,7 +517,8 @@ function Auth({ onDone, onCancel }) {
 const pwScoreColor = (s) => (s <= 1 ? "#c4543a" : s === 2 ? "#b8862b" : s === 3 ? "#5b8c5a" : "#2e7d4f");
 const pwScoreText = (s) => (s <= 1 ? "약함" : s === 2 ? "보통" : s === 3 ? "좋음" : "강함");
 
-function Feed({ list, q, setQ, cat, setCat, onOpen, onLike, liked, total }) {
+function Feed({ list, q, setQ, cat, setCat, cats, onOpen, onLike, liked, onSave, saved, total }) {
+  const chips = ["전체", ...cats];
   return (
     <div>
       <section style={S.hero} className="rise" >
@@ -494,7 +533,7 @@ function Feed({ list, q, setQ, cat, setCat, onOpen, onLike, liked, total }) {
           <input style={S.search} placeholder="검색 — 자동화, 대시보드, n8n…"
             value={q} onChange={(e) => setQ(e.target.value)} />
           <div style={S.cats}>
-            {CATS.map((c) => (
+            {chips.map((c) => (
               <button key={c} onClick={() => setCat(c)} className="chip"
                 style={{ ...S.catChip, ...(cat === c ? S.catChipActive : {}) }}>{c}</button>
             ))}
@@ -504,7 +543,8 @@ function Feed({ list, q, setQ, cat, setCat, onOpen, onLike, liked, total }) {
 
       <section style={S.grid}>
         {list.map((p, i) => (
-          <Card key={p.id} p={p} i={i} onOpen={onOpen} onLike={onLike} isLiked={!!liked[p.id]} />
+          <Card key={p.id} p={p} i={i} onOpen={onOpen} onLike={onLike} isLiked={!!liked[p.id]}
+            onSave={onSave} isSaved={!!saved[p.id]} />
         ))}
         {list.length === 0 && <p style={S.empty}>조건에 맞는 작품이 없습니다.</p>}
       </section>
@@ -512,13 +552,14 @@ function Feed({ list, q, setQ, cat, setCat, onOpen, onLike, liked, total }) {
   );
 }
 
-function Card({ p, i, onOpen, onLike, isLiked }) {
+function Card({ p, i, onOpen, onLike, isLiked, onSave, isSaved }) {
   const [burst, setBurst] = useState(false);
   const doLike = (e) => {
     e.stopPropagation();
     if (!isLiked) { setBurst(true); setTimeout(() => setBurst(false), 500); }
     onLike(p.id);
   };
+  const doSave = (e) => { e.stopPropagation(); onSave(p.id); };
   return (
     <article style={{ ...S.card, animationDelay: `${i * 70}ms` }} className="card card-rise">
       <div style={{ ...S.cardThumb, background: thumbGrad(p.hue) }} onClick={() => onOpen(p)}>
@@ -536,14 +577,39 @@ function Card({ p, i, onOpen, onLike, isLiked }) {
         <div style={S.tagRow}>{p.stacks.map((s) => <span key={s} style={S.tag}>{s}</span>)}</div>
       </div>
       <div style={S.cardFoot}>
-        <button className="reactBtn" style={{ ...S.reactBtn, color: isLiked ? C.accent : C.sub, fontWeight: isLiked ? 700 : 600 }} onClick={doLike}>
-          <span style={{ position: "relative" }}>
-            {isLiked ? "♥" : "♡"} {burst && <span style={S.heartBurst} className="burst">♥</span>}
-          </span> {p.likes}
-        </button>
+        <div style={S.footLeft}>
+          <button className="reactBtn" style={{ ...S.reactBtn, color: isLiked ? C.accent : C.sub, fontWeight: isLiked ? 700 : 600 }} onClick={doLike}>
+            <span style={{ position: "relative" }}>
+              {isLiked ? "♥" : "♡"} {burst && <span style={S.heartBurst} className="burst">♥</span>}
+            </span> {p.likes}
+          </button>
+          <button className="reactBtn" title={isSaved ? "보관함에서 빼기" : "보관함에 담기"}
+            style={{ ...S.reactBtn, color: isSaved ? C.gold : C.sub, fontWeight: isSaved ? 700 : 600 }} onClick={doSave}>
+            {isSaved ? "🔖" : "🏷"} 보관
+          </button>
+        </div>
         <span style={S.meta}>💬 {p.comments} · ▶ {p.demo_clicks || 0}</span>
       </div>
     </article>
+  );
+}
+
+function Bookmarks({ list, onOpen, onLike, liked, onSave, saved }) {
+  return (
+    <div className="rise">
+      <h1 style={S.formH1} className="rise-1">보관함</h1>
+      <p style={S.formSub} className="rise-2">나중에 써볼 작품을 담아두는 곳. 카드의 🏷 보관 버튼으로 추가할 수 있어요.</p>
+      {list.length === 0 ? (
+        <p style={S.empty}>아직 보관한 작품이 없어요. 쇼케이스에서 마음에 드는 작품을 🏷 보관해보세요.</p>
+      ) : (
+        <section style={S.grid}>
+          {list.map((p, i) => (
+            <Card key={p.id} p={p} i={i} onOpen={onOpen} onLike={onLike} isLiked={!!liked[p.id]}
+              onSave={onSave} isSaved={!!saved[p.id]} />
+          ))}
+        </section>
+      )}
+    </div>
   );
 }
 
@@ -590,7 +656,11 @@ function Detail({ p, onBack, onLike, liked, comments, onComment, onTrack, isMobi
               {isLiked ? "♥" : "♡"} 좋아요 {p.likes}
             </button>
             <button className="reactBtnLg" style={S.reactBtnLg} onClick={openComment}>💬 댓글 {p.comments}</button>
-            <span style={S.meta}>🔖 북마크</span>
+            <button className="reactBtnLg"
+              style={{ ...S.reactBtnLg, background: isSaved ? "#f7ecd4" : C.chip, color: isSaved ? C.gold : C.ink }}
+              onClick={() => onSave(p.id)}>
+              {isSaved ? "🔖 보관됨" : "🏷 보관하기"}
+            </button>
           </div>
           <h4 style={S.secTitle}>기술 스택</h4>
           <div style={S.tagRow}>{p.stacks.map((s) => <span key={s} style={S.tag}>{s}</span>)}</div>
@@ -640,8 +710,8 @@ function Detail({ p, onBack, onLike, liked, comments, onComment, onTrack, isMobi
   );
 }
 
-function Share({ onSubmit, builder }) {
-  const [f, setF] = useState({ title: "", cat: "웹앱", story: "", demo: "", github: "", sns: [""], stacks: [] });
+function Share({ onSubmit, builder, cats }) {
+  const [f, setF] = useState({ title: "", cat: cats[0] || "웹앱", story: "", demo: "", github: "", sns: [""], stacks: [] });
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggleStack = (s) => setF((st) => ({ ...st, stacks: st.stacks.includes(s) ? st.stacks.filter((x) => x !== s) : [...st.stacks, s] }));
   const setSns = (i, v) => setF((s) => ({ ...s, sns: s.sns.map((x, idx) => idx === i ? v : x) }));
@@ -657,7 +727,7 @@ function Share({ onSubmit, builder }) {
       </p>
       <div className="rise-3">
         <Field label="제목"><input style={S.in} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="예: 구독 해지 방어 대시보드" /></Field>
-        <Field label="카테고리"><select style={S.in} value={f.cat} onChange={(e) => set("cat", e.target.value)}>{CATS.filter((c) => c !== "전체").map((c) => <option key={c}>{c}</option>)}</select></Field>
+        <Field label="카테고리"><select style={S.in} value={f.cat} onChange={(e) => set("cat", e.target.value)}>{cats.map((c) => <option key={c}>{c}</option>)}</select></Field>
         <Field label="메이킹 스토리 — 왜·어떻게 만들었나"><textarea style={{ ...S.in, minHeight: 90 }} value={f.story} onChange={(e) => set("story", e.target.value)} placeholder="자랑 포인트, 만든 계기, 핵심 기능을 자유롭게 적어주세요." /></Field>
         <Field label="라이브 데모 URL (필수)">
           <input style={{ ...S.in, borderColor: f.demo && !demoOk ? "#c4543a" : undefined }} value={f.demo} onChange={(e) => set("demo", e.target.value)} placeholder="https://..." />
@@ -728,8 +798,9 @@ function Mine({ items, username }) {
 // ── 관리자 콘솔 ─────────────────────────────────────────────
 // 더 이상 하드코딩 비밀번호가 없습니다. 권한은 서버의 profiles.role 로만 결정됩니다.
 // 실제 삭제 보호는 반드시 Supabase RLS 정책으로 서버에서 한 번 더 막아야 합니다(문서 참고).
-function Admin({ isAdmin, user, onGoLogin, items, allComments, onDeleteItem, onDeleteComment, stats, users, onDeleteUser }) {
+function Admin({ isAdmin, user, onGoLogin, items, allComments, onDeleteItem, onDeleteComment, stats, users, onDeleteUser, cats, onAddCat, onDeleteCat }) {
   const [confirmId, setConfirmId] = useState(null);
+  const [newCat, setNewCat] = useState("");
 
   // 1) 비로그인
   if (!user) {
@@ -777,6 +848,25 @@ function Admin({ isAdmin, user, onGoLogin, items, allComments, onDeleteItem, onD
           <StatCard label="소스 방문" value={stats.githubClicks || 0} icon="⎇" hint="GitHub 이동" />
         </div>
       )}
+
+      {/* ── 카테고리 관리 ── */}
+      <h4 style={S.secTitle}>카테고리 관리 ({cats.length})</h4>
+      <div style={S.catAdminRow}>
+        {cats.map((c) => (
+          <span key={c} style={S.catAdminChip}>
+            {c}
+            <button onClick={() => onDeleteCat(c)} style={S.catDel} title="삭제">✕</button>
+          </span>
+        ))}
+      </div>
+      <div style={S.catAddRow}>
+        <input style={{ ...S.in, flex: 1 }} value={newCat} placeholder="새 카테고리 이름 (예: 게임)"
+          onChange={(e) => setNewCat(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && newCat.trim()) { onAddCat(newCat); setNewCat(""); } }} />
+        <button onClick={() => { if (newCat.trim()) { onAddCat(newCat); setNewCat(""); } }}
+          style={{ ...S.cta, opacity: newCat.trim() ? 1 : 0.45 }} className="cta">추가</button>
+      </div>
+      <p style={S.note}>추가·삭제한 카테고리는 즉시 쇼케이스 필터와 작품 등록 화면에 반영됩니다.</p>
 
       <h4 style={S.secTitle}>작품 관리 ({items.length})</h4>
       {items.length === 0 ? <p style={S.empty}>등록된 작품이 없습니다.</p>
@@ -979,6 +1069,7 @@ const S = {
   tagRow: { display: "flex", gap: 6, flexWrap: "wrap" },
   tag: { background: C.chip, padding: "3px 9px", borderRadius: 6, fontSize: 11.5, color: C.sub },
   cardFoot: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 18px", borderTop: `1px solid ${C.line}` },
+  footLeft: { display: "flex", alignItems: "center", gap: 12 },
   reactBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 14, color: C.sub, fontWeight: 600 },
   heartBurst: { position: "absolute", left: "50%", top: "50%", color: C.accent, fontSize: 18, pointerEvents: "none" },
   meta: { fontSize: 13, color: C.sub },
@@ -1075,6 +1166,10 @@ const S = {
   adminLoginWrap: { maxWidth: 420, margin: "40px auto 0", textAlign: "center" },
   adminLockBig: { fontSize: 48, marginBottom: 8 },
   adminHead: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  catAdminRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  catAdminChip: { display: "inline-flex", alignItems: "center", gap: 6, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 20, padding: "6px 8px 6px 14px", fontSize: 13, fontWeight: 600, boxShadow: SH.rest },
+  catDel: { background: "#fbeae6", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 11, color: C.accentDark, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  catAddRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 4 },
   statGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 8 },
   statCard: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 14, padding: "16px 18px", boxShadow: SH.rest },
   statCardWide: { gridColumn: "1 / -1", background: "linear-gradient(135deg, #fbf3e4, #f7ecd4)", borderColor: "#eddcb4" },

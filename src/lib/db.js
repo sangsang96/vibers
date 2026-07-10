@@ -17,11 +17,13 @@ const SEED = [
   { id: 3, title: "동네 모임 매칭 앱", cat: "모바일", stacks: ["Flutter", "Supabase"], demo: "https://example.com/d3", builder: "moim_dev", hue: 150, story: "혼자 살다 외로워서 만든 위치기반 소모임 매칭 앱. 그냥 구경용으로 공개해요.", likes: 88, comments: 7, demo_clicks: 4, github_clicks: 0 },
   { id: 4, title: "노션 회의록 자동 요약기", cat: "AI도구", stacks: ["Next.js", "TypeScript"], demo: "https://example.com/d4", builder: "pm_sang", hue: 38, story: "회의 녹음 던지면 노션에 액션아이템까지 정리. 매주 2시간 아낌.", likes: 256, comments: 31, demo_clicks: 21, github_clicks: 0 },
 ];
+const DEFAULT_CATS = ["웹앱", "모바일", "자동화/봇", "크롬확장", "AI도구", "기타"];
 const mem = {
   projects: SEED.map((p) => ({ ...p })),
   comments: {},      // { [projectId]: [{id, who, text}] }
   likes: {},         // { [projectId]: true }
-  licenses: [],
+  bookmarks: {},     // { [projectId]: true }
+  cats: [...DEFAULT_CATS],
   seq: 1000,
 };
 const nextId = () => ++mem.seq;
@@ -117,6 +119,53 @@ export async function deleteComment(projectId, commentId) {
     return;
   }
   const { error } = await supabase.from("comments").delete().eq("id", commentId);
+  if (error) throw error;
+}
+
+// ── 보관함(북마크) ──────────────────────────────────────────
+export async function fetchMyBookmarks(userId) {
+  if (isMock) return Object.keys(mem.bookmarks).map(Number);
+  if (!userId) return [];
+  const { data, error } = await supabase.from("bookmarks").select("project_id").eq("user_id", userId);
+  if (error) throw error;
+  return (data || []).map((r) => r.project_id);
+}
+
+// on=true 면 이미 저장됨 → 해제(delete), 아니면 저장(insert)
+export async function toggleBookmark(projectId, userId, on) {
+  if (isMock) {
+    if (on) delete mem.bookmarks[projectId];
+    else mem.bookmarks[projectId] = true;
+    return;
+  }
+  if (on) {
+    const { error } = await supabase.from("bookmarks").delete().eq("project_id", projectId).eq("user_id", userId);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from("bookmarks").insert({ project_id: projectId, user_id: userId });
+    if (error) throw error;
+  }
+}
+
+// ── 카테고리 (관리자 편집) ──────────────────────────────────
+export async function fetchCategories() {
+  if (isMock) return [...mem.cats];
+  const { data, error } = await supabase
+    .from("categories").select("name").order("sort", { ascending: true }).order("name", { ascending: true });
+  if (error) throw error;
+  const list = (data || []).map((r) => r.name);
+  return list.length ? list : DEFAULT_CATS; // 테이블 비었으면 기본값
+}
+
+export async function addCategory(name) {
+  if (isMock) { if (!mem.cats.includes(name)) mem.cats.push(name); return; }
+  const { error } = await supabase.from("categories").insert({ name, sort: 100 });
+  if (error) throw error;
+}
+
+export async function deleteCategory(name) {
+  if (isMock) { mem.cats = mem.cats.filter((c) => c !== name); return; }
+  const { error } = await supabase.from("categories").delete().eq("name", name);
   if (error) throw error;
 }
 
