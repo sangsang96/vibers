@@ -15,7 +15,6 @@ import * as db from "./lib/db";
 
 const CATS = ["전체", "웹앱", "모바일", "자동화/봇", "크롬확장", "AI도구", "기타"];
 const STACKS = ["React", "Next.js", "Python", "n8n", "LangGraph", "Supabase", "Flutter", "TypeScript"];
-const won = (n) => n.toLocaleString("ko-KR") + "원";
 
 function useIsMobile(bp = 720) {
   const [m, setM] = useState(typeof window !== "undefined" ? window.innerWidth < bp : false);
@@ -79,12 +78,13 @@ export default function App() {
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("전체");
-  const [licenses, setLicenses] = useState([]);
   const [toast, setToast] = useState("");
-  const [gate, setGate] = useState(null);
   const [liked, setLiked] = useState({});      // { [작품id]: true } — 내가 누른 작품
   const [comments, setComments] = useState({}); // { [작품id]: [{id, who, text}] }
   const [authNext, setAuthNext] = useState(null); // 로그인 후 돌아갈 view
+  const [stats, setStats] = useState(null);   // 관리자 통계
+  const [users, setUsers] = useState([]);     // 관리자: 사용자 목록
+  const [adminComments, setAdminComments] = useState([]); // 관리자: 전체 댓글
   const isMobile = useIsMobile();
 
   const flash = (t) => { setToast(t); setTimeout(() => setToast(""), 2800); };
@@ -98,14 +98,13 @@ export default function App() {
     return () => { active = false; };
   }, []);
 
-  // 로그인 상태가 바뀌면 내가 누른 좋아요 / 보유 라이선스를 다시 읽는다.
+  // 로그인 상태가 바뀌면 내가 누른 좋아요를 다시 읽는다.
   useEffect(() => {
     let active = true;
-    if (!user) { setLiked({}); setLicenses([]); return; }
+    if (!user) { setLiked({}); return; }
     db.fetchMyLikes(user.id).then((ids) => {
       if (active) setLiked(Object.fromEntries(ids.map((id) => [id, true])));
     }).catch(() => {});
-    db.fetchLicenses(user.id).then((ls) => { if (active) setLicenses(ls); }).catch(() => {});
     return () => { active = false; };
   }, [user]);
 
@@ -140,8 +139,35 @@ export default function App() {
     try { await db.deleteComment(itemId, cmtId); }
     catch { flash("삭제에 실패했습니다 (권한 확인)"); return; }
     setComments((cs) => ({ ...cs, [itemId]: (cs[itemId] || []).filter((c) => c.id !== cmtId) }));
+    setAdminComments((cs) => cs.filter((c) => c.id !== cmtId));
     setItems((it) => it.map((p) => p.id === itemId ? { ...p, comments: Math.max(0, p.comments - 1) } : p));
     flash("댓글을 삭제했습니다");
+  };
+
+  // 관리자 화면에 들어오고 권한이 있을 때만 통계·사용자 목록을 불러온다.
+  const loadAdminData = () => {
+    db.fetchStats().then(setStats).catch(() => {});
+    db.fetchUsers().then(setUsers).catch(() => {});
+    db.fetchAllComments().then(setAdminComments).catch(() => {});
+  };
+  useEffect(() => {
+    if (view === "admin" && isAdmin) loadAdminData();
+  }, [view, isAdmin]);
+
+  // 관리자 전용: 사용자 완전 삭제 (Edge Function 경유 — 서버에서 관리자 검증)
+  const deleteUser = async (id) => {
+    try { await db.deleteUser(id); }
+    catch (e) {
+      const m = String(e?.message || "");
+      if (/Function not found|not found|Failed to fetch|non-2xx/i.test(m))
+        flash("사용자 삭제 함수가 아직 배포되지 않았습니다 (ADMIN_SETUP.md 참고)");
+      else flash("사용자 삭제 실패: " + (m || "권한 확인"));
+      return;
+    }
+    setUsers((us) => us.filter((u) => u.id !== id));
+    flash("사용자를 삭제했습니다");
+    loadAdminData();
+    db.fetchProjects().then(setItems).catch(() => {}); // 작성자 표시 갱신
   };
 
   const filtered = useMemo(() =>
@@ -174,16 +200,11 @@ export default function App() {
     } catch { flash("댓글 등록에 실패했습니다"); }
   };
 
-  const buyLicense = async (p, kind) => {
-    if (!requireAuth("detail")) { setGate(null); return; }
-    const price = kind === "sub" ? p.commercial.sub : p.commercial.price;
-    try {
-      const row = await db.buyLicense({ projectId: p.id, userId: user.id, title: p.title, builder: p.builder, kind, price });
-      setLicenses((ls) => [row, ...ls]);
-      setGate(null);
-      flash("상업 라이선스 발급 완료 — 소스·기능 잠금 해제됨");
-      setTimeout(() => setView("locker"), 400);
-    } catch { setGate(null); flash("라이선스 발급에 실패했습니다"); }
+  // 데모/깃허브 버튼 클릭 측정 — 화면 카운트를 먼저 올리고 서버에 기록
+  const trackClick = (p, kind) => {
+    const key = kind === "demo" ? "demo_clicks" : "github_clicks";
+    setItems((it) => it.map((x) => x.id === p.id ? { ...x, [key]: (x[key] || 0) + 1 } : x));
+    db.trackClick(p.id, kind, user?.id).catch(() => {});
   };
 
   const logout = async () => {
@@ -198,7 +219,7 @@ export default function App() {
       <div style={S.grain} />
       {isMock && <MockBanner />}
       <Header
-        view={view} setView={setView} lockerCount={licenses.length}
+        view={view} setView={setView}
         user={user} username={username} isAdmin={isAdmin}
         onShare={() => requireAuth("share") && setView("share")}
         onLogout={logout}
@@ -212,8 +233,7 @@ export default function App() {
         {view === "detail" && sel && (
           <Detail p={items.find((x) => x.id === sel.id) || sel} onBack={() => setView("feed")}
             onLike={like} liked={liked} comments={comments[sel.id] || []} onComment={addComment}
-            onCommercial={() => requireAuth("detail") && setGate(items.find((x) => x.id === sel.id) || sel)}
-            owned={licenses.some((l) => l.title === sel.title)} isMobile={isMobile} canWrite={!!user} />
+            onTrack={trackClick} isMobile={isMobile} canWrite={!!user} />
         )}
         {view === "auth" && (
           <Auth onDone={() => { setView(authNext || "feed"); setAuthNext(null); flash("환영합니다 🎉"); }}
@@ -228,17 +248,16 @@ export default function App() {
             } catch { flash("작품 공개에 실패했습니다"); }
           }} />
         )}
-        {view === "locker" && <Locker licenses={licenses} />}
         {view === "mine" && <Mine items={items} username={username} />}
         {view === "admin" && (
           <Admin isAdmin={isAdmin} user={user} onGoLogin={() => { setAuthNext("admin"); setView("auth"); }}
-            items={items} comments={comments} onDeleteItem={deleteItem} onDeleteComment={deleteComment} />
+            items={items} allComments={adminComments} onDeleteItem={deleteItem} onDeleteComment={deleteComment}
+            stats={stats} users={users} onDeleteUser={deleteUser} />
         )}
       </main>
-      {gate && <Paywall p={gate} onClose={() => setGate(null)} onBuy={buyLicense} />}
       {toast && <div style={S.toast} className="toast-in">{toast}</div>}
       <footer style={S.footer}>
-        공유는 무료 · 상업적 사용만 유료 — 커뮤니티 먼저, 수익화는 그 다음
+        공유·데모·오픈소스는 무료 — 커뮤니티 먼저, 상업적 이용은 준비 중
         <span style={S.footerSep}>·</span>
         <button onClick={() => setView("admin")} style={S.footerAdmin} className="link">관리자</button>
       </footer>
@@ -255,7 +274,7 @@ function MockBanner() {
   );
 }
 
-function Header({ view, setView, lockerCount, user, username, isAdmin, onShare, onLogout, onLogin }) {
+function Header({ view, setView, user, username, isAdmin, onShare, onLogout, onLogin }) {
   const Tab = ({ id, label, badge }) => (
     <button onClick={() => setView(id)} className="tab"
       style={{ ...S.tab, ...(view === id ? S.tabActive : {}) }}>
@@ -267,8 +286,8 @@ function Header({ view, setView, lockerCount, user, username, isAdmin, onShare, 
       <div style={S.headerTop}>
         <div style={S.brand} onClick={() => setView("feed")}>
           <span style={S.brandMark}>◧</span>
-          <span style={S.brandName}>바이버스</span>
-          <span style={S.brandSub}>/ showcase</span>
+          <span style={S.brandName}>바이브스테이지</span>
+          <span style={S.brandSub}>/ stage</span>
         </div>
         <div style={S.headerRight}>
           {user ? (
@@ -289,7 +308,6 @@ function Header({ view, setView, lockerCount, user, username, isAdmin, onShare, 
       </div>
       <nav style={S.nav} className="tabscroll">
         <Tab id="feed" label="쇼케이스" />
-        <Tab id="locker" label="보관함" badge={lockerCount || null} />
         <Tab id="mine" label="내 작품" />
       </nav>
     </header>
@@ -375,10 +393,10 @@ function Auth({ onDone, onCancel }) {
           style={{ ...S.authTab, ...(mode === "login" ? S.authTabOn : {}) }}>로그인</button>
       </div>
 
-      <h1 style={S.formH1} className="rise-1">{mode === "signup" ? "바이버스 시작하기" : "다시 오셨네요"}</h1>
+      <h1 style={S.formH1} className="rise-1">{mode === "signup" ? "바이브스테이지 시작하기" : "다시 오셨네요"}</h1>
       <p style={S.formSub} className="rise-2">
         {mode === "signup"
-          ? "작품을 자랑하고 댓글·라이선스를 이용하려면 가입이 필요해요. 30초면 끝나요."
+          ? "작품을 무대에 올리고 댓글·좋아요를 남기려면 가입이 필요해요. 30초면 끝나요."
           : "이메일과 비밀번호로 로그인하세요."}
       </p>
 
@@ -451,7 +469,7 @@ function Auth({ onDone, onCancel }) {
         </div>
 
         <p style={S.note}>
-          비밀번호는 바이버스 서버에 저장되지 않습니다. Supabase가 해싱하여 안전하게 관리합니다.
+          비밀번호는 바이브스테이지 서버에 저장되지 않습니다. Supabase가 해싱하여 안전하게 관리합니다.
         </p>
       </div>
     </div>
@@ -468,8 +486,9 @@ function Feed({ list, q, setQ, cat, setCat, onOpen, onLike, liked, total }) {
         <div style={S.heroGlow} />
         <h1 style={S.h1} className="rise-1">내가 만든 거,<br /><em style={S.em}>일단 자랑부터.</em></h1>
         <p style={S.heroP} className="rise-2">
-          바이브 코딩으로 만든 작품을 공유하고 구경하세요. 보는 것도, 데모 체험도 전부 무료.
-          <b> 상업적으로 가져다 쓸 때만</b> 라이선스를 구매하면 됩니다. 현재 <b>{total}개</b> 작품 공개 중.
+          바이브 코딩으로 만든 작품을 무대에 올리고, 서로 데모를 써보고, 오픈소스로 가져가세요.
+          전부 무료예요. <b>상업적 이용</b>은 빌더에게 수익이 돌아가는 방식으로 곧 열립니다.
+          현재 <b>{total}개</b> 작품 공개 중.
         </p>
         <div className="rise-3">
           <input style={S.search} placeholder="검색 — 자동화, 대시보드, n8n…"
@@ -506,9 +525,9 @@ function Card({ p, i, onOpen, onLike, isLiked }) {
         <div style={S.thumbSheen} className="sheen" />
         <span style={S.thumbCat}>{p.cat}</span>
         <span style={{ ...S.thumbGlyph, color: `hsl(${p.hue} 40% 55% / .55)` }}>◨</span>
-        {p.commercial.enabled
-          ? <span style={S.commBadge}>상업용 {won(p.commercial.price)}~</span>
-          : <span style={S.freeBadge}>구경용 공개</span>}
+        {p.github
+          ? <span style={S.freeBadge}>오픈소스</span>
+          : <span style={S.viewBadge}>구경용 공개</span>}
       </div>
       <div style={S.cardBody} onClick={() => onOpen(p)}>
         <div style={S.builderRow}>@{p.builder}</div>
@@ -522,13 +541,13 @@ function Card({ p, i, onOpen, onLike, isLiked }) {
             {isLiked ? "♥" : "♡"} {burst && <span style={S.heartBurst} className="burst">♥</span>}
           </span> {p.likes}
         </button>
-        <span style={S.meta}>💬 {p.comments}</span>
+        <span style={S.meta}>💬 {p.comments} · ▶ {p.demo_clicks || 0}</span>
       </div>
     </article>
   );
 }
 
-function Detail({ p, onBack, onLike, liked, comments, onComment, onCommercial, owned, isMobile, canWrite }) {
+function Detail({ p, onBack, onLike, liked, comments, onComment, onTrack, isMobile, canWrite }) {
   const isLiked = !!liked[p.id];
   const [showCmt, setShowCmt] = useState(false);
   const [draft, setDraft] = useState("");
@@ -592,27 +611,28 @@ function Detail({ p, onBack, onLike, liked, comments, onComment, onCommercial, o
         </div>
 
         <aside style={asideStyle} className="rise-2">
-          <a href={p.demo} target="_blank" rel="noreferrer" style={S.demoBtn} className="cta">
+          <a href={p.demo} target="_blank" rel="noreferrer" style={S.demoBtn} className="cta"
+            onClick={() => onTrack(p, "demo")}>
             ▶ 라이브 데모 체험 <span style={S.freePill}>무료</span>
           </a>
+          {p.github ? (
+            <a href={p.github} target="_blank" rel="noreferrer" style={S.ghBtn} className="cta"
+              onClick={() => onTrack(p, "github")}>
+              ⎇ GitHub 소스 보기 <span style={S.osPill}>오픈소스</span>
+            </a>
+          ) : (
+            <div style={S.noGh}>빌더가 아직 GitHub 링크를 공개하지 않았어요.</div>
+          )}
+          <div style={S.clickRow}>
+            <span style={S.clickStat}>▶ 데모 체험 <b>{(p.demo_clicks || 0).toLocaleString("ko-KR")}</b>회</span>
+            <span style={S.clickStat}>⎇ 소스 방문 <b>{(p.github_clicks || 0).toLocaleString("ko-KR")}</b>회</span>
+          </div>
           <div style={S.gateBox}>
-            <div style={S.gateLabel}>상업적으로 사용하려면</div>
-            {p.commercial.enabled ? (
-              owned ? (
-                <div style={S.ownedBox}>✓ 라이선스 보유 중 — 잠금 해제됨</div>
-              ) : (
-                <>
-                  <div style={S.gatePrice}><span>단건 구매</span><b>{won(p.commercial.price)}</b></div>
-                  <div style={S.gatePrice}><span>월 구독</span><b>{won(p.commercial.sub)}/월</b></div>
-                  <button onClick={onCommercial} style={{ ...S.cta, width: "100%", marginTop: 14 }} className="cta glow">
-                    🔒 상업 라이선스 구매
-                  </button>
-                  <p style={S.note}>구매 전까지 소스·상업적 사용은 잠겨 있습니다. 구경·학습은 자유예요.</p>
-                </>
-              )
-            ) : (
-              <div style={S.noComm}>이 작품은 <b>구경용</b>으로만 공개됐어요. 빌더가 상업 라이선스를 열지 않았습니다.</div>
-            )}
+            <div style={S.gateLabel}>이용 안내</div>
+            <div style={S.noComm}>
+              구경·데모 체험·오픈소스 활용까지 전부 <b>무료</b>입니다.
+              <b> 상업적 이용</b>은 빌더 @{p.builder} 에게 수익이 정산되는 방식으로 준비 중이에요.
+            </div>
           </div>
         </aside>
       </div>
@@ -620,55 +640,21 @@ function Detail({ p, onBack, onLike, liked, comments, onComment, onCommercial, o
   );
 }
 
-function Paywall({ p, onClose, onBuy }) {
-  useEffect(() => {
-    const esc = (e) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", esc);
-    return () => window.removeEventListener("keydown", esc);
-  }, [onClose]);
-  return (
-    <div style={S.modalBg} onClick={onClose} className="backdrop-in">
-      <div style={S.modal} onClick={(e) => e.stopPropagation()} className="modal-spring">
-        <div style={S.modalGlow} />
-        <div style={S.lockIcon} className="lock-pop">🔒</div>
-        <h2 style={S.modalTitle}>상업적 사용 라이선스</h2>
-        <p style={S.modalSub}>
-          <b>{p.title}</b> 의 코드와 기능을 실제 서비스·수익 활동에 사용하려면 라이선스가 필요합니다.
-          구경과 학습은 계속 무료예요.
-        </p>
-        <div style={S.planRow}>
-          <div style={S.plan} className="plan-card" onClick={() => onBuy(p, "once")}>
-            <div style={S.planName}>단건 구매</div>
-            <div style={S.planPrice}>{won(p.commercial.price)}</div>
-            <div style={S.planDesc}>영구 사용 · 소스 전체 잠금 해제</div>
-          </div>
-          <div style={{ ...S.plan, ...S.planHot }} className="plan-card plan-hot" onClick={() => onBuy(p, "sub")}>
-            <div style={S.planBadge}>인기</div>
-            <div style={S.planName}>월 구독</div>
-            <div style={S.planPrice}>{won(p.commercial.sub)}<span style={S.perMo}>/월</span></div>
-            <div style={S.planDesc}>업데이트 포함 · 언제든 해지</div>
-          </div>
-        </div>
-        <p style={S.note}>결제 시 수수료를 제외한 금액이 빌더 @{p.builder} 에게 정산됩니다.</p>
-        <button onClick={onClose} style={S.modalClose} className="link">나중에 할게요</button>
-      </div>
-    </div>
-  );
-}
-
 function Share({ onSubmit, builder }) {
-  const [f, setF] = useState({ title: "", cat: "웹앱", story: "", demo: "", github: "", sns: [""], stacks: [], commEnabled: false, price: "", sub: "" });
+  const [f, setF] = useState({ title: "", cat: "웹앱", story: "", demo: "", github: "", sns: [""], stacks: [] });
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggleStack = (s) => setF((st) => ({ ...st, stacks: st.stacks.includes(s) ? st.stacks.filter((x) => x !== s) : [...st.stacks, s] }));
   const setSns = (i, v) => setF((s) => ({ ...s, sns: s.sns.map((x, idx) => idx === i ? v : x) }));
   const addSns = () => setF((s) => ({ ...s, sns: [...s.sns, ""] }));
   const removeSns = (i) => setF((s) => ({ ...s, sns: s.sns.filter((_, idx) => idx !== i) }));
   const demoOk = /^https?:\/\/.+\..+/.test(f.demo.trim());
-  const valid = f.title.trim() && f.story.trim() && demoOk && f.stacks.length && (!f.commEnabled || (f.price && f.sub));
+  const valid = f.title.trim() && f.story.trim() && demoOk && f.stacks.length;
   return (
     <div style={S.formWrap} className="rise">
       <h1 style={S.formH1} className="rise-1">작품 자랑하기</h1>
-      <p style={S.formSub} className="rise-2">공유는 무료입니다. 상업적 사용을 허용할지는 직접 선택하세요. (게시자: @{builder})</p>
+      <p style={S.formSub} className="rise-2">
+        공유는 무료입니다. GitHub 링크를 남기면 <b>오픈소스</b> 배지가 붙고, 다른 회원이 소스를 가져가 쓸 수 있어요. (게시자: @{builder})
+      </p>
       <div className="rise-3">
         <Field label="제목"><input style={S.in} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="예: 구독 해지 방어 대시보드" /></Field>
         <Field label="카테고리"><select style={S.in} value={f.cat} onChange={(e) => set("cat", e.target.value)}>{CATS.filter((c) => c !== "전체").map((c) => <option key={c}>{c}</option>)}</select></Field>
@@ -677,7 +663,7 @@ function Share({ onSubmit, builder }) {
           <input style={{ ...S.in, borderColor: f.demo && !demoOk ? "#c4543a" : undefined }} value={f.demo} onChange={(e) => set("demo", e.target.value)} placeholder="https://..." />
           {f.demo && !demoOk && <span style={S.errText}>올바른 URL 형식이 아닙니다.</span>}
         </Field>
-        <Field label="GitHub">
+        <Field label="GitHub — 링크를 남기면 '오픈소스' 배지가 붙어요 (선택)">
           <input style={S.in} value={f.github} onChange={(e) => set("github", e.target.value)} placeholder="https://github.com/username/repo" />
         </Field>
         <Field label="SNS">
@@ -696,24 +682,11 @@ function Share({ onSubmit, builder }) {
             <button key={s} onClick={() => toggleStack(s)} className="chip" style={{ ...S.catChip, ...(f.stacks.includes(s) ? S.catChipActive : {}) }}>{s}</button>
           ))}</div>
         </Field>
-        <div style={S.commToggleBox}>
-          <label style={S.commToggle}>
-            <input type="checkbox" checked={f.commEnabled} onChange={(e) => set("commEnabled", e.target.checked)} />
-            <span><b>상업적 사용 허용</b> — 다른 사람이 돈 내고 실제 서비스에 쓸 수 있게 열기</span>
-          </label>
-          {f.commEnabled && (
-            <div style={S.row2}>
-              <Field label="단건 가격 (원)"><input style={S.in} type="number" value={f.price} onChange={(e) => set("price", e.target.value)} placeholder="150000" /></Field>
-              <Field label="월 구독 (원)"><input style={S.in} type="number" value={f.sub} onChange={(e) => set("sub", e.target.value)} placeholder="9900" /></Field>
-            </div>
-          )}
-        </div>
         <button disabled={!valid} onClick={() => onSubmit({
           title: f.title.trim(), cat: f.cat, story: f.story.trim(), demo: f.demo.trim(),
           github: f.github.trim(), sns: f.sns.map((s) => s.trim()).filter(Boolean),
           stacks: f.stacks, builder: builder || "me",
-          commercial: f.commEnabled ? { enabled: true, price: Number(f.price), sub: Number(f.sub) } : { enabled: false },
-        })} style={{ ...S.cta, width: "100%", marginTop: 8, opacity: valid ? 1 : 0.45 }} className="cta">피드에 공개하기</button>
+        })} style={{ ...S.cta, width: "100%", marginTop: 8, opacity: valid ? 1 : 0.45 }} className="cta">무대에 올리기</button>
       </div>
     </div>
   );
@@ -723,33 +696,29 @@ function Field({ label, children }) {
   return <label style={S.field}><span style={S.fieldLabel}>{label}</span>{children}</label>;
 }
 
-function Locker({ licenses }) {
-  return (
-    <div style={S.formWrap} className="rise">
-      <h1 style={S.formH1} className="rise-1">라이선스 보관함</h1>
-      <p style={S.formSub} className="rise-2">구매한 상업 라이선스와 이용 증빙입니다.</p>
-      {licenses.length === 0 ? <p style={S.empty}>아직 구매한 라이선스가 없습니다. 상업적으로 쓸 작품을 찾아보세요.</p>
-        : licenses.map((l, i) => (
-          <div key={l.id} style={{ ...S.msgCard, animationDelay: `${i*70}ms` }} className="card-rise">
-            <div style={S.msgHead}><b>{l.title}</b><span style={S.statusChip}>{l.kind === "sub" ? "구독중" : "영구 라이선스"}</span></div>
-            <p style={S.msgText}>빌더 @{l.builder} · 결제 {won(l.price)}{l.kind === "sub" ? "/월" : ""}</p>
-            <span style={S.unlockChip}>🔓 소스·기능 잠금 해제됨</span>
-          </div>
-        ))}
-    </div>
-  );
-}
-
 function Mine({ items, username }) {
   const mine = items.filter((p) => p.builder === username);
   return (
     <div style={S.formWrap} className="rise">
       <h1 style={S.formH1} className="rise-1">내 작품</h1>
-      {mine.length === 0 ? <p style={S.empty}>아직 자랑한 작품이 없습니다. "작품 자랑하기"로 올려보세요.</p>
+      <p style={S.formSub} className="rise-2">
+        다른 회원들이 내 작품을 얼마나 써봤는지 확인하세요. 데모 체험·소스 방문이 실시간으로 집계됩니다.
+      </p>
+      {mine.length === 0 ? <p style={S.empty}>아직 무대에 올린 작품이 없습니다. "작품 자랑하기"로 올려보세요.</p>
         : mine.map((p) => (
-          <div key={p.id} style={S.lineItem}>
-            <span>{p.title}</span>
-            <span style={p.commercial.enabled ? S.commChip : S.statusChipPend}>{p.commercial.enabled ? `상업용 ${won(p.commercial.price)}~` : "구경용 공개"}</span>
+          <div key={p.id} style={S.msgCard}>
+            <div style={S.msgHead}>
+              <b>{p.title}</b>
+              {p.github
+                ? <span style={S.statusChip}>오픈소스</span>
+                : <span style={S.statusChipPend}>구경용 공개</span>}
+            </div>
+            <div style={S.mineStats}>
+              <span style={S.mineStat}>▶ 데모 체험 <b>{(p.demo_clicks || 0).toLocaleString("ko-KR")}</b>회</span>
+              <span style={S.mineStat}>⎇ 소스 방문 <b>{(p.github_clicks || 0).toLocaleString("ko-KR")}</b>회</span>
+              <span style={S.mineStat}>♥ 좋아요 <b>{p.likes}</b></span>
+              <span style={S.mineStat}>💬 댓글 <b>{p.comments}</b></span>
+            </div>
           </div>
         ))}
     </div>
@@ -759,7 +728,7 @@ function Mine({ items, username }) {
 // ── 관리자 콘솔 ─────────────────────────────────────────────
 // 더 이상 하드코딩 비밀번호가 없습니다. 권한은 서버의 profiles.role 로만 결정됩니다.
 // 실제 삭제 보호는 반드시 Supabase RLS 정책으로 서버에서 한 번 더 막아야 합니다(문서 참고).
-function Admin({ isAdmin, user, onGoLogin, items, comments, onDeleteItem, onDeleteComment }) {
+function Admin({ isAdmin, user, onGoLogin, items, allComments, onDeleteItem, onDeleteComment, stats, users, onDeleteUser }) {
   const [confirmId, setConfirmId] = useState(null);
 
   // 1) 비로그인
@@ -788,15 +757,26 @@ function Admin({ isAdmin, user, onGoLogin, items, comments, onDeleteItem, onDele
     );
   }
 
-  // 3) 관리자 콘솔
-  const allComments = items.flatMap((p) => (comments[p.id] || []).map((c) => ({ ...c, itemId: p.id, itemTitle: p.title })));
-
+  // 3) 관리자 콘솔 (전체 댓글은 서버에서 통째로 받아온 allComments 사용)
   return (
     <div style={S.formWrap} className="rise">
       <div style={S.adminHead}>
         <h1 style={S.formH1}>관리자 콘솔</h1>
       </div>
-      <p style={S.formSub}>부적절한 작품이나 댓글을 삭제할 수 있습니다. 삭제는 되돌릴 수 없습니다.</p>
+      <p style={S.formSub}>서비스 현황을 보고, 부적절한 작품·댓글·사용자를 삭제할 수 있습니다. 삭제는 되돌릴 수 없습니다.</p>
+
+      {/* ── 통계 대시보드 ── */}
+      <h4 style={S.secTitle}>통계</h4>
+      {!stats ? <p style={S.empty}>통계를 불러오는 중…</p> : (
+        <div style={S.statGrid}>
+          <StatCard label="가입 인원" value={stats.mock ? "—" : stats.users} icon="👤" hint={stats.mock ? "미리보기 모드" : "전체 회원"} />
+          <StatCard label="등록 제품" value={stats.projects} icon="📦" hint="공개된 작품" />
+          <StatCard label="댓글" value={stats.comments} icon="💬" />
+          <StatCard label="좋아요" value={stats.likes} icon="♥" />
+          <StatCard label="데모 체험" value={stats.demoClicks || 0} icon="▶" hint="누적 클릭" />
+          <StatCard label="소스 방문" value={stats.githubClicks || 0} icon="⎇" hint="GitHub 이동" />
+        </div>
+      )}
 
       <h4 style={S.secTitle}>작품 관리 ({items.length})</h4>
       {items.length === 0 ? <p style={S.empty}>등록된 작품이 없습니다.</p>
@@ -835,6 +815,50 @@ function Admin({ isAdmin, user, onGoLogin, items, comments, onDeleteItem, onDele
             )}
           </div>
         ))}
+
+      {/* ── 사용자 관리 ── */}
+      <h4 style={S.secTitle}>사용자 관리 ({users.length})</h4>
+      {users.length === 0 ? (
+        <p style={S.empty}>표시할 사용자가 없습니다. (미리보기 모드에선 사용자 목록이 제공되지 않아요)</p>
+      ) : users.map((u) => (
+        <div key={u.id} style={S.adminRow}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={S.adminRowTitle}>
+              @{u.username}
+              {u.role === "admin" && <span style={S.adminTag}>관리자</span>}
+              {u.id === user.id && <span style={S.meTag}>나</span>}
+            </div>
+            <div style={S.adminRowMeta}>
+              작품 {u.projectCount}개
+              {u.created_at && ` · 가입 ${new Date(u.created_at).toLocaleDateString("ko-KR")}`}
+            </div>
+          </div>
+          {u.id === user.id ? (
+            <span style={S.selfNote}>본인</span>
+          ) : confirmId === `user-${u.id}` ? (
+            <div style={S.confirmRow}>
+              <button onClick={() => { onDeleteUser(u.id); setConfirmId(null); }} style={S.delConfirm} className="cta">삭제 확인</button>
+              <button onClick={() => setConfirmId(null)} style={S.delCancel} className="chip">취소</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmId(`user-${u.id}`)} style={S.delBtn} className="chip">삭제</button>
+          )}
+        </div>
+      ))}
+      <p style={S.note}>
+        사용자 삭제는 계정과 그 사용자의 댓글·좋아요·라이선스를 함께 지웁니다(작품은 남고 작성자 표시만 비워짐).
+        되돌릴 수 없습니다.
+      </p>
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon, hint, wide }) {
+  return (
+    <div style={{ ...S.statCard, ...(wide ? S.statCardWide : {}) }}>
+      <div style={S.statTop}><span style={S.statIcon}>{icon}</span><span style={S.statLabel}>{label}</span></div>
+      <div style={S.statValue}>{value}</div>
+      {hint && <div style={S.statHint}>{hint}</div>}
     </div>
   );
 }
@@ -974,6 +998,14 @@ const S = {
 
   buyBox: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 20, padding: 24, height: "fit-content", position: "sticky", top: 92, boxShadow: SH.float },
   demoBtn: { background: C.ink, color: "#fff", border: "none", padding: "14px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
+  ghBtn: { background: C.paper, color: C.ink, border: `1.5px solid ${C.ink}`, padding: "13px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 10 },
+  osPill: { background: "#5b8c5a", color: "#fff", fontSize: 11, padding: "2px 8px", borderRadius: 12 },
+  noGh: { background: C.chip, color: C.sub, fontSize: 12.5, padding: "11px 14px", borderRadius: 12, textAlign: "center", marginTop: 10, lineHeight: 1.5 },
+  clickRow: { display: "flex", justifyContent: "space-between", gap: 8, marginTop: 14, paddingTop: 14, borderTop: `1px dashed ${C.line}` },
+  clickStat: { fontSize: 12.5, color: C.sub },
+  viewBadge: { position: "absolute", bottom: 12, right: 12, background: "#8a8377", color: "#fff", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, boxShadow: "0 4px 12px rgba(107,101,92,.35)" },
+  mineStats: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, color: C.sub },
+  mineStat: { whiteSpace: "nowrap" },
   freePill: { background: "#5b8c5a", color: "#fff", fontSize: 11, padding: "2px 8px", borderRadius: 12 },
   gateBox: { marginTop: 20, paddingTop: 20, borderTop: `1px dashed ${C.line}` },
   gateLabel: { fontSize: 13, fontWeight: 700, color: C.gold, marginBottom: 12 },
@@ -1043,6 +1075,16 @@ const S = {
   adminLoginWrap: { maxWidth: 420, margin: "40px auto 0", textAlign: "center" },
   adminLockBig: { fontSize: 48, marginBottom: 8 },
   adminHead: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  statGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 8 },
+  statCard: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 14, padding: "16px 18px", boxShadow: SH.rest },
+  statCardWide: { gridColumn: "1 / -1", background: "linear-gradient(135deg, #fbf3e4, #f7ecd4)", borderColor: "#eddcb4" },
+  statTop: { display: "flex", alignItems: "center", gap: 7, marginBottom: 8 },
+  statIcon: { fontSize: 16 },
+  statLabel: { fontSize: 12.5, color: C.sub, fontWeight: 700 },
+  statValue: { fontFamily: "Fraunces,serif", fontWeight: 900, fontSize: 28, color: C.ink, lineHeight: 1.1 },
+  statHint: { fontSize: 11.5, color: C.sub, marginTop: 4 },
+  meTag: { background: C.chip, color: C.sub, borderRadius: 20, fontSize: 10.5, fontWeight: 700, padding: "1px 7px", marginLeft: 6 },
+  selfNote: { fontSize: 12, color: C.sub, flexShrink: 0, padding: "8px 4px" },
   adminRow: { display: "flex", alignItems: "center", gap: 12, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 12, padding: "12px 14px", marginBottom: 8, boxShadow: SH.rest },
   adminRowTitle: { fontSize: 14, fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   adminRowMeta: { fontSize: 12, color: C.sub, marginTop: 3 },
