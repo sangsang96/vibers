@@ -613,7 +613,7 @@ function Bookmarks({ list, onOpen, onLike, liked, onSave, saved }) {
   );
 }
 
-function Detail({ p, onBack, onLike, liked, comments, onComment, onTrack, isMobile, canWrite }) {
+function Detail({ p, onBack, onLike, liked, comments, onComment, onTrack, isMobile, canWrite, onSave, isSaved }) {
   const isLiked = !!liked[p.id];
   const [showCmt, setShowCmt] = useState(false);
   const [draft, setDraft] = useState("");
