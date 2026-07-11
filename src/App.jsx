@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { supabase, isMock } from "./lib/supabase";
 import * as db from "./lib/db";
+import { LegalModal } from "./legal.jsx";
 
 // ============================================================
 //  바이버스(Vibers) — 뎁스 고도화 + Supabase 인증(회원가입/로그인)
@@ -88,6 +89,7 @@ export default function App() {
   const [stats, setStats] = useState(null);   // 관리자 통계
   const [users, setUsers] = useState([]);     // 관리자: 사용자 목록
   const [adminComments, setAdminComments] = useState([]); // 관리자: 전체 댓글
+  const [legalDoc, setLegalDoc] = useState(null); // 'terms' | 'privacy' | null (약관 모달)
   const isMobile = useIsMobile();
 
   const flash = (t) => { setToast(t); setTimeout(() => setToast(""), 2800); };
@@ -273,7 +275,7 @@ export default function App() {
         )}
         {view === "auth" && (
           <Auth onDone={() => { setView(authNext || "feed"); setAuthNext(null); flash("환영합니다 🎉"); }}
-            onCancel={() => setView("feed")} />
+            onCancel={() => setView("feed")} onOpenLegal={setLegalDoc} />
         )}
         {view === "share" && (
           <Share builder={username} cats={cats} onSubmit={async (proj) => {
@@ -293,10 +295,16 @@ export default function App() {
         )}
       </main>
       {toast && <div style={S.toast} className="toast-in">{toast}</div>}
+      {legalDoc && <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />}
       <footer style={S.footer}>
         공유·데모·오픈소스는 무료 — 커뮤니티 먼저, 상업적 이용은 준비 중
-        <span style={S.footerSep}>·</span>
-        <button onClick={() => setView("admin")} style={S.footerAdmin} className="link">관리자</button>
+        <div style={S.footerLinks}>
+          <button onClick={() => setLegalDoc("terms")} style={S.footerLink} className="link">이용약관</button>
+          <span style={S.footerSep}>·</span>
+          <button onClick={() => setLegalDoc("privacy")} style={S.footerLink} className="link">개인정보처리방침</button>
+          <span style={S.footerSep}>·</span>
+          <button onClick={() => setView("admin")} style={S.footerAdmin} className="link">관리자</button>
+        </div>
       </footer>
     </div>
   );
@@ -353,14 +361,15 @@ function Header({ view, setView, savedCount, user, username, isAdmin, onShare, o
 }
 
 // ── 회원가입 / 로그인 화면 ──────────────────────────────────
-function Auth({ onDone, onCancel }) {
+function Auth({ onDone, onCancel, onOpenLegal }) {
   const [mode, setMode] = useState("signup"); // "signup" | "login"
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [ageOk, setAgeOk] = useState(false); // 만 14세 이상 동의
+  const [ageOk, setAgeOk] = useState(false);   // 만 14세 이상 동의
+  const [agreeOk, setAgreeOk] = useState(false); // 이용약관·개인정보처리방침 동의
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [info, setInfo] = useState("");
@@ -375,7 +384,7 @@ function Auth({ onDone, onCancel }) {
 
   const valid = mode === "login"
     ? emailOk && pw.length > 0
-    : emailOk && pwOk && usernameOk && pw === pw2 && ageOk;
+    : emailOk && pwOk && usernameOk && pw === pw2 && ageOk && agreeOk;
 
   const submit = async () => {
     setErr(""); setInfo("");
@@ -391,8 +400,13 @@ function Auth({ onDone, onCancel }) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: pw,
-          // username 은 profiles 트리거에서 사용. age_consent 는 만 14세 이상 동의 증빙(가입 시각 기록).
-          options: { data: { username: username.trim(), age_consent: true, age_consent_at: new Date().toISOString() } },
+          // username 은 profiles 트리거에서 사용. 동의 증빙(만 14세 이상 + 약관/개인정보)을 가입 시각과 함께 기록.
+          options: { data: {
+            username: username.trim(),
+            age_consent: true,
+            terms_consent: true,
+            consent_at: new Date().toISOString(),
+          } },
         });
         if (error) throw error;
         // 이메일 확인이 켜져 있으면 session이 없습니다 → 메일 인증 안내
@@ -422,7 +436,7 @@ function Auth({ onDone, onCancel }) {
     }
   };
 
-  const switchMode = (m) => { setMode(m); setErr(""); setInfo(""); setAgeOk(false); };
+  const switchMode = (m) => { setMode(m); setErr(""); setInfo(""); setAgeOk(false); setAgreeOk(false); };
 
   return (
     <div style={S.authWrap} className="rise">
@@ -491,13 +505,27 @@ function Auth({ onDone, onCancel }) {
         )}
 
         {mode === "signup" && (
-          <label style={S.ageBox}>
-            <input type="checkbox" checked={ageOk} onChange={(e) => setAgeOk(e.target.checked)} style={S.ageCheck} />
-            <span style={S.ageText}>
-              <b>[필수]</b> 저는 <b>만 14세 이상</b>입니다.
-              <span style={S.ageSub}>만 14세 미만은 법정대리인 동의가 필요해 가입할 수 없어요.</span>
-            </span>
-          </label>
+          <div style={S.consentWrap}>
+            <label style={S.consentRow}>
+              <input type="checkbox" checked={ageOk} onChange={(e) => setAgeOk(e.target.checked)} style={S.ageCheck} />
+              <span style={S.ageText}>
+                <b>[필수]</b> 저는 <b>만 14세 이상</b>입니다.
+                <span style={S.ageSub}>만 14세 미만은 법정대리인 동의가 필요해 가입할 수 없어요.</span>
+              </span>
+            </label>
+            <div style={S.consentDiv} />
+            <label style={S.consentRow}>
+              <input type="checkbox" checked={agreeOk} onChange={(e) => setAgreeOk(e.target.checked)} style={S.ageCheck} />
+              <span style={S.ageText}>
+                <b>[필수]</b>{" "}
+                <button type="button" className="link" style={S.linkBtn} onClick={() => onOpenLegal("terms")}>이용약관</button>
+                {" 및 "}
+                <button type="button" className="link" style={S.linkBtn} onClick={() => onOpenLegal("privacy")}>개인정보처리방침</button>
+                에 동의합니다.
+                <span style={S.ageSub}>파란 글씨를 누르면 전문을 확인할 수 있어요.</span>
+              </span>
+            </label>
+          </div>
         )}
 
         {err && <div style={S.authError}>{err}</div>}
@@ -1150,10 +1178,14 @@ const S = {
   pwMeterLabel: { fontSize: 12, fontWeight: 700, marginLeft: 4, minWidth: 28 },
   row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },
   errText: { color: C.accent, fontSize: 12, marginTop: 4, display: "block" },
-  ageBox: { display: "flex", gap: 10, alignItems: "flex-start", background: C.paper, border: `1px solid ${C.line}`, borderRadius: 12, padding: "12px 14px", margin: "4px 0 14px", cursor: "pointer", boxShadow: SH.rest },
+  consentWrap: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 12, padding: "4px 14px", margin: "4px 0 14px", boxShadow: SH.rest },
+  consentRow: { display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 0", cursor: "pointer" },
+  consentDiv: { borderTop: `1px solid ${C.line}` },
   ageCheck: { width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: C.accent, cursor: "pointer" },
   ageText: { fontSize: 13.5, color: C.ink, lineHeight: 1.5 },
   ageSub: { display: "block", fontSize: 12, color: C.sub, marginTop: 3 },
+  footerLinks: { display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap", marginTop: 8 },
+  footerLink: { background: "none", border: "none", color: C.sub, fontSize: 12.5, cursor: "pointer", textDecoration: "underline", padding: 0 },
   authError: { background: "#fbeae6", border: "1px solid #f0c4ba", color: C.accentDark, borderRadius: 11, padding: "11px 14px", fontSize: 13, marginBottom: 12, lineHeight: 1.5 },
   authInfo: { background: "#e3efe4", border: "1px solid #bfe0c6", color: "#2e7d4f", borderRadius: 11, padding: "11px 14px", fontSize: 13, marginBottom: 12, lineHeight: 1.5 },
   authSwitch: { marginTop: 16, fontSize: 13.5, color: C.sub, textAlign: "center", lineHeight: 1.6 },
