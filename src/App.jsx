@@ -360,6 +360,7 @@ function Auth({ onDone, onCancel }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [ageOk, setAgeOk] = useState(false); // 만 14세 이상 동의
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [info, setInfo] = useState("");
@@ -374,7 +375,7 @@ function Auth({ onDone, onCancel }) {
 
   const valid = mode === "login"
     ? emailOk && pw.length > 0
-    : emailOk && pwOk && usernameOk && pw === pw2;
+    : emailOk && pwOk && usernameOk && pw === pw2 && ageOk;
 
   const submit = async () => {
     setErr(""); setInfo("");
@@ -390,7 +391,8 @@ function Auth({ onDone, onCancel }) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: pw,
-          options: { data: { username: username.trim() } }, // profiles 트리거에서 사용
+          // username 은 profiles 트리거에서 사용. age_consent 는 만 14세 이상 동의 증빙(가입 시각 기록).
+          options: { data: { username: username.trim(), age_consent: true, age_consent_at: new Date().toISOString() } },
         });
         if (error) throw error;
         // 이메일 확인이 켜져 있으면 session이 없습니다 → 메일 인증 안내
@@ -420,7 +422,7 @@ function Auth({ onDone, onCancel }) {
     }
   };
 
-  const switchMode = (m) => { setMode(m); setErr(""); setInfo(""); };
+  const switchMode = (m) => { setMode(m); setErr(""); setInfo(""); setAgeOk(false); };
 
   return (
     <div style={S.authWrap} className="rise">
@@ -486,6 +488,16 @@ function Auth({ onDone, onCancel }) {
               placeholder="••••••••" />
             {pw2 && pw !== pw2 && <span style={S.errText}>비밀번호가 일치하지 않습니다.</span>}
           </Field>
+        )}
+
+        {mode === "signup" && (
+          <label style={S.ageBox}>
+            <input type="checkbox" checked={ageOk} onChange={(e) => setAgeOk(e.target.checked)} style={S.ageCheck} />
+            <span style={S.ageText}>
+              <b>[필수]</b> 저는 <b>만 14세 이상</b>입니다.
+              <span style={S.ageSub}>만 14세 미만은 법정대리인 동의가 필요해 가입할 수 없어요.</span>
+            </span>
+          </label>
         )}
 
         {err && <div style={S.authError}>{err}</div>}
@@ -1138,6 +1150,10 @@ const S = {
   pwMeterLabel: { fontSize: 12, fontWeight: 700, marginLeft: 4, minWidth: 28 },
   row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },
   errText: { color: C.accent, fontSize: 12, marginTop: 4, display: "block" },
+  ageBox: { display: "flex", gap: 10, alignItems: "flex-start", background: C.paper, border: `1px solid ${C.line}`, borderRadius: 12, padding: "12px 14px", margin: "4px 0 14px", cursor: "pointer", boxShadow: SH.rest },
+  ageCheck: { width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: C.accent, cursor: "pointer" },
+  ageText: { fontSize: 13.5, color: C.ink, lineHeight: 1.5 },
+  ageSub: { display: "block", fontSize: 12, color: C.sub, marginTop: 3 },
   authError: { background: "#fbeae6", border: "1px solid #f0c4ba", color: C.accentDark, borderRadius: 11, padding: "11px 14px", fontSize: 13, marginBottom: 12, lineHeight: 1.5 },
   authInfo: { background: "#e3efe4", border: "1px solid #bfe0c6", color: "#2e7d4f", borderRadius: 11, padding: "11px 14px", fontSize: 13, marginBottom: 12, lineHeight: 1.5 },
   authSwitch: { marginTop: 16, fontSize: 13.5, color: C.sub, textAlign: "center", lineHeight: 1.6 },
