@@ -408,8 +408,8 @@ export function LegalModal({ doc, onClose }) {
   );
 }
 
-const INK = "#0A0A0A", SUB = "#52525B", LINE = "#EAEAEA", PAPER = "#FFFFFF", ACCENT = "#3F5B8B", CHIP = "#F4F4F5";
-const BODYTXT = "#3F3F46";
+const INK = "#1C1917", SUB = "#57534E", LINE = "#E7E2DB", PAPER = "#FDFCFA", ACCENT = "#56728A", CHIP = "#F2EFE9";
+const BODYTXT = "#44403C";
 const LS = {
   bg: { position: "fixed", inset: 0, background: "rgba(10,10,10,.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 },
   modal: { background: PAPER, border: `1px solid ${LINE}`, borderRadius: 14, maxWidth: 720, width: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,.14)", overflow: "hidden" },

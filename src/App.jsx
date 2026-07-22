@@ -554,7 +554,7 @@ function Auth({ onDone, onCancel, onOpenLegal }) {
   );
 }
 
-const pwScoreColor = (s) => (s <= 1 ? "#A1A1AA" : s === 2 ? "#71717A" : s === 3 ? "#52525B" : "#0A0A0A");
+const pwScoreColor = (s) => (s <= 1 ? "#A8A29E" : s === 2 ? "#8A837C" : s === 3 ? "#57534E" : "#1C1917");
 const pwScoreText = (s) => (s <= 1 ? "약함" : s === 2 ? "보통" : s === 3 ? "좋음" : "강함");
 
 function Feed({ list, q, setQ, cat, setCat, cats, onOpen, onLike, liked, onSave, saved, total }) {
@@ -605,7 +605,7 @@ function Card({ p, i, onOpen, onLike, isLiked, onSave, isSaved }) {
       <div style={{ ...S.cardThumb, background: thumbGrad(p.hue) }} onClick={() => onOpen(p)}>
         <div style={S.thumbSheen} className="sheen" />
         <span style={S.thumbCat}>{p.cat}</span>
-        <span style={{ ...S.thumbGlyph, color: "#D4D4D8" }}>◨</span>
+        <span style={{ ...S.thumbGlyph, color: "#D6CFC3" }}>◨</span>
         {p.github
           ? <span style={S.freeBadge}>오픈소스</span>
           : <span style={S.viewBadge}>구경용 공개</span>}
@@ -684,20 +684,20 @@ function Detail({ p, onBack, onLike, liked, comments, onComment, onTrack, isMobi
         <div className="rise">
           <div style={{ ...S.detailHero, background: thumbGrad(p.hue) }} className="rise-1">
             <div style={S.thumbSheen} className="sheen" />
-            <span style={{ ...S.thumbGlyphLg, color: "#D4D4D8" }}>◨</span>
+            <span style={{ ...S.thumbGlyphLg, color: "#D6CFC3" }}>◨</span>
           </div>
           <div style={S.builderRow} className="rise-2">@{p.builder} 의 작품</div>
           <h1 style={S.detailTitle} className="rise-2">{p.title}</h1>
           <p style={S.detailDesc} className="rise-3">{p.story}</p>
           <div style={S.reactBar} className="rise-3">
             <button className="reactBtnLg"
-              style={{ ...S.reactBtnLg, background: isLiked ? C.ink : "#fff", color: isLiked ? "#fff" : C.ink, borderColor: isLiked ? C.ink : C.line }}
+              style={{ ...S.reactBtnLg, background: isLiked ? C.accentDark : C.paper, color: isLiked ? "#fff" : C.ink, borderColor: isLiked ? C.accentDark : C.line }}
               onClick={() => onLike(p.id)}>
               {isLiked ? "♥" : "♡"} 좋아요 {p.likes}
             </button>
             <button className="reactBtnLg" style={S.reactBtnLg} onClick={openComment}>💬 댓글 {p.comments}</button>
             <button className="reactBtnLg"
-              style={{ ...S.reactBtnLg, background: isSaved ? C.ink : "#fff", color: isSaved ? "#fff" : C.ink, borderColor: isSaved ? C.ink : C.line }}
+              style={{ ...S.reactBtnLg, background: isSaved ? C.accentDark : C.paper, color: isSaved ? "#fff" : C.ink, borderColor: isSaved ? C.accentDark : C.line }}
               onClick={() => onSave(p.id)}>
               {isSaved ? "🔖 보관됨" : "🏷 보관하기"}
             </button>
@@ -993,27 +993,28 @@ function StatCard({ label, value, icon, hint, wide }) {
   );
 }
 
-// 썸네일 플레이스홀더 — 파스텔 그라데이션 대신 뉴트럴 한 톤 (실제 스크린샷 넣기 전까지)
-const thumbGrad = () => "#FAFAFA";
+// 썸네일 플레이스홀더 — 파스텔 대신 웜 뉴트럴 (실제 스크린샷 넣기 전까지)
+const thumbGrad = () => "#F7F4EF";
 
 // ============================================================
-//  스타일 — Refined Monochrome (Attio/Linear 계열)
-//  진백 배경 + 잉크 블랙 + 헤어라인 그레이. 브랜드 색 없음.
+//  스타일 — Warm & Intentional (Attio/Linear 무드 + 온기)
+//  웜 화이트 배경 + 웜 잉크 + 웜 헤어라인. 슬레이트 블루는 포인트에만.
 // ============================================================
 const C = {
-  bg: "#FFFFFF", paper: "#FFFFFF", paperAlt: "#FAFAFA",
-  ink: "#0A0A0A", sub: "#52525B", muted: "#A1A1AA",
-  line: "#EAEAEA", lineStrong: "#D4D4D8",
-  accent: "#3F5B8B",       // 링크·활성·포커스에만 쓰는 채도 낮은 슬레이트 블루
-  // 아래는 기존 코드 호환용 별칭 — 전부 무채색으로 재매핑
-  accentDark: "#3F5B8B", chip: "#F4F4F5", gold: "#52525B",
+  bg: "#FDFCFA", paper: "#FDFCFA", paperAlt: "#F7F4EF",
+  ink: "#1C1917", sub: "#57534E", muted: "#A8A29E",
+  line: "#E7E2DB", lineStrong: "#D9D2C7",
+  accent: "#647E93",        // 밑줄·포커스·틴트 등 장식용 슬레이트 블루
+  accentDark: "#56728A",    // 버튼 배경·링크 텍스트 (흰 글씨 대비 AA 확보)
+  accentTint: "#DBE0E5",    // 히어로 하이라이트 밑줄
+  chip: "#F2EFE9", gold: "#57534E",
 };
-// 거의 플랫 — 깊이는 헤어라인 보더가 만든다. 섀도는 위스퍼 수준만.
+// 거의 플랫 — 깊이는 웜 헤어라인이 만든다. 섀도는 hover에만 아주 옅게(웜 틴트).
 const SH = {
   rest: "none",
-  hover: "0 1px 2px rgba(0,0,0,.05)",
-  float: "0 1px 3px rgba(0,0,0,.06)",
-  modal: "0 10px 40px rgba(0,0,0,.14)",
+  hover: "0 1px 2px rgba(28,25,23,.06)",
+  float: "0 1px 3px rgba(28,25,23,.07)",
+  modal: "0 12px 40px rgba(28,25,23,.14)",
 };
 
 const CSS = `
@@ -1070,13 +1071,13 @@ const S = {
   app: { minHeight: "100vh", background: C.bg, color: C.ink, fontFamily: "'Pretendard', -apple-system, 'Apple SD Gothic Neo', system-ui, sans-serif", position: "relative" },
   grain: { display: "none" },
   mockBanner: { position: "relative", zIndex: 30, background: C.paperAlt, borderBottom: `1px solid ${C.line}`, color: C.sub, fontSize: 12.5, lineHeight: 1.5, padding: "9px 18px", textAlign: "center" },
-  mockCode: { background: "#fff", border: `1px solid ${C.line}`, padding: "1px 6px", borderRadius: 5, fontFamily: "ui-monospace, monospace", fontSize: 12 },
+  mockCode: { background: C.paper, border: `1px solid ${C.line}`, padding: "1px 6px", borderRadius: 5, fontFamily: "ui-monospace, monospace", fontSize: 12 },
   header: { display: "flex", flexDirection: "column", gap: 12, padding: "14px 24px", borderBottom: `1px solid ${C.line}`, background: "rgba(255,255,255,.8)", position: "sticky", top: 0, zIndex: 20 },
   headerTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 },
   headerRight: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
   userChip: { fontSize: 13, color: C.ink, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" },
   adminTag: { background: C.paperAlt, border: `1px solid ${C.line}`, color: C.sub, borderRadius: 6, fontSize: 10.5, fontWeight: 500, padding: "1px 7px", letterSpacing: ".02em" },
-  ghostBtn: { background: "#fff", border: `1px solid ${C.lineStrong}`, borderRadius: 8, padding: "8px 13px", fontSize: 13, color: C.ink, cursor: "pointer", whiteSpace: "nowrap" },
+  ghostBtn: { background: C.paper, border: `1px solid ${C.lineStrong}`, borderRadius: 8, padding: "8px 13px", fontSize: 13, color: C.ink, cursor: "pointer", whiteSpace: "nowrap" },
   brand: { fontWeight: 600, fontSize: 19, letterSpacing: "-.02em", cursor: "pointer", display: "flex", gap: 7, alignItems: "baseline", whiteSpace: "nowrap", flexShrink: 0, color: C.ink },
   brandMark: { color: C.ink, fontSize: 20, alignSelf: "center" },
   brandName: { whiteSpace: "nowrap" },
@@ -1085,21 +1086,21 @@ const S = {
   tab: { background: "none", border: "none", padding: "8px 12px", fontSize: 14, color: C.sub, cursor: "pointer", borderRadius: 8, whiteSpace: "nowrap", flexShrink: 0 },
   tabActive: { color: C.ink, fontWeight: 500, background: C.paperAlt },
   badge: { background: C.ink, color: "#fff", borderRadius: 10, fontSize: 11, fontWeight: 500, padding: "1px 6px", marginLeft: 6 },
-  cta: { background: C.ink, color: "#fff", border: "1px solid transparent", padding: "9px 15px", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer", textDecoration: "none", display: "inline-block", textAlign: "center", whiteSpace: "nowrap", flexShrink: 0 },
+  cta: { background: C.accentDark, color: "#fff", border: "1px solid transparent", padding: "9px 16px", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer", textDecoration: "none", display: "inline-block", textAlign: "center", whiteSpace: "nowrap", flexShrink: 0 },
   main: { maxWidth: 1200, margin: "0 auto", padding: "40px 32px 96px", position: "relative", zIndex: 2 },
 
   hero: { padding: "56px 0 44px", position: "relative" },
   heroGlow: { display: "none" },
-  h1: { fontWeight: 600, fontSize: 48, lineHeight: 1.08, margin: 0, letterSpacing: "-.03em", position: "relative", color: C.ink },
-  em: { fontStyle: "normal", color: C.ink, textDecoration: "underline", textDecorationColor: C.accent, textDecorationThickness: "2px", textUnderlineOffset: "6px" },
+  h1: { fontWeight: 600, fontSize: 48, lineHeight: 1.12, margin: 0, letterSpacing: "-.03em", position: "relative", color: C.ink },
+  em: { fontStyle: "normal", color: C.ink, background: `linear-gradient(to top, ${C.accentTint} 40%, transparent 40%)`, borderRadius: 6, padding: "0 4px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" },
   heroP: { color: C.sub, fontSize: 16, maxWidth: 620, marginTop: 20, lineHeight: 1.6 },
-  search: { width: "100%", maxWidth: 520, padding: "12px 16px", fontSize: 15, border: `1px solid ${C.line}`, borderRadius: 8, background: "#fff", marginTop: 28, display: "block" },
+  search: { width: "100%", maxWidth: 520, padding: "12px 16px", fontSize: 15, border: `1px solid ${C.line}`, borderRadius: 10, background: C.paper, marginTop: 28, display: "block" },
   cats: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" },
-  catChip: { background: "#fff", border: `1px solid ${C.line}`, padding: "6px 12px", borderRadius: 8, fontSize: 13, cursor: "pointer", color: C.sub },
-  catChipActive: { background: C.ink, color: "#fff", borderColor: C.ink },
+  catChip: { background: C.paper, border: `1px solid ${C.line}`, padding: "6px 12px", borderRadius: 8, fontSize: 13, cursor: "pointer", color: C.sub },
+  catChipActive: { background: C.accentDark, color: "#fff", borderColor: C.accentDark },
 
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 24, marginTop: 20 },
-  card: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" },
+  card: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column" },
   cardThumb: { height: 150, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderBottom: `1px solid ${C.line}` },
   thumbSheen: { display: "none" },
   thumbCat: { position: "absolute", top: 12, left: 12, background: "rgba(255,255,255,.92)", border: `1px solid ${C.line}`, padding: "2px 9px", borderRadius: 6, fontSize: 11, fontWeight: 500, color: C.sub, backdropFilter: "blur(4px)" },
@@ -1126,19 +1127,19 @@ const S = {
   detailTitle: { fontWeight: 600, fontSize: 34, margin: "8px 0", letterSpacing: "-.025em", wordBreak: "keep-all", overflowWrap: "break-word", color: C.ink },
   detailDesc: { color: C.sub, fontSize: 16, lineHeight: 1.7 },
   reactBar: { display: "flex", gap: 10, alignItems: "center", marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.line}` },
-  reactBtnLg: { background: "#fff", border: `1px solid ${C.line}`, cursor: "pointer", fontSize: 14, color: C.ink, fontWeight: 500, padding: "9px 16px", borderRadius: 8 },
+  reactBtnLg: { background: C.paper, border: `1px solid ${C.line}`, cursor: "pointer", fontSize: 14, color: C.ink, fontWeight: 500, padding: "9px 16px", borderRadius: 8 },
   secTitle: { fontSize: 12, fontWeight: 500, color: C.muted, textTransform: "uppercase", letterSpacing: ".08em", marginTop: 32, marginBottom: 12 },
-  comment: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "11px 15px", fontSize: 14, color: C.sub, marginBottom: 8, lineHeight: 1.5 },
+  comment: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 10, padding: "11px 15px", fontSize: 14, color: C.sub, marginBottom: 8, lineHeight: 1.5 },
   cmtInputRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 14 },
 
-  buyBox: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: 24, height: "fit-content", position: "sticky", top: 92, boxShadow: SH.float },
-  demoBtn: { background: C.ink, color: "#fff", border: "1px solid transparent", padding: "13px", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
-  ghBtn: { background: "#fff", color: C.ink, border: `1px solid ${C.lineStrong}`, padding: "12px", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 10 },
+  buyBox: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 14, padding: 24, height: "fit-content", position: "sticky", top: 92, boxShadow: SH.float },
+  demoBtn: { background: C.accentDark, color: "#fff", border: "1px solid transparent", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
+  ghBtn: { background: C.paper, color: C.ink, border: `1px solid ${C.lineStrong}`, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 10 },
   osPill: { background: C.paperAlt, border: `1px solid ${C.line}`, color: C.sub, fontSize: 11, padding: "1px 7px", borderRadius: 5 },
   noGh: { background: C.paperAlt, border: `1px solid ${C.line}`, color: C.sub, fontSize: 12.5, padding: "11px 14px", borderRadius: 8, textAlign: "center", marginTop: 10, lineHeight: 1.5 },
   clickRow: { display: "flex", justifyContent: "space-between", gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.line}` },
   clickStat: { fontSize: 12.5, color: C.muted },
-  viewBadge: { position: "absolute", bottom: 12, right: 12, background: "#fff", border: `1px solid ${C.line}`, color: C.sub, padding: "2px 9px", borderRadius: 6, fontSize: 11, fontWeight: 500 },
+  viewBadge: { position: "absolute", bottom: 12, right: 12, background: C.paper, border: `1px solid ${C.line}`, color: C.sub, padding: "2px 9px", borderRadius: 6, fontSize: 11, fontWeight: 500 },
   mineStats: { display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: C.sub },
   mineStat: { whiteSpace: "nowrap" },
   freePill: { background: "rgba(255,255,255,.16)", color: "#fff", fontSize: 11, padding: "1px 7px", borderRadius: 5 },
@@ -1150,13 +1151,13 @@ const S = {
   note: { fontSize: 12, color: C.muted, marginTop: 10, lineHeight: 1.5 },
 
   modalBg: { position: "fixed", inset: 0, background: "rgba(10,10,10,.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 },
-  modal: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 34, maxWidth: 480, width: "100%", boxShadow: SH.modal, position: "relative", overflow: "hidden" },
+  modal: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 14, padding: 34, maxWidth: 480, width: "100%", boxShadow: SH.modal, position: "relative", overflow: "hidden" },
   modalGlow: { display: "none" },
   lockIcon: { fontSize: 40, textAlign: "center", position: "relative" },
   modalTitle: { fontWeight: 600, fontSize: 26, letterSpacing: "-.02em", textAlign: "center", margin: "10px 0 6px", color: C.ink },
   modalSub: { color: C.sub, fontSize: 14, textAlign: "center", lineHeight: 1.6, marginBottom: 24 },
   planRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 13 },
-  plan: { border: `1px solid ${C.line}`, borderRadius: 12, padding: 20, textAlign: "center", position: "relative", background: "#fff" },
+  plan: { border: `1px solid ${C.line}`, borderRadius: 12, padding: 20, textAlign: "center", position: "relative", background: C.paper },
   planHot: { borderColor: C.ink },
   planBadge: { position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: C.ink, color: "#fff", fontSize: 11, fontWeight: 500, padding: "2px 12px", borderRadius: 20 },
   planName: { fontSize: 13, color: C.sub, fontWeight: 500 },
@@ -1169,12 +1170,12 @@ const S = {
   authWrap: { maxWidth: 440, margin: "0 auto" },
   authTabs: { display: "flex", gap: 4, background: C.paperAlt, border: `1px solid ${C.line}`, borderRadius: 10, padding: 4, marginBottom: 24 },
   authTab: { flex: 1, padding: "9px 0", border: "1px solid transparent", background: "none", borderRadius: 7, fontSize: 14, fontWeight: 500, color: C.sub, cursor: "pointer", transition: "all .15s" },
-  authTabOn: { background: "#fff", color: C.ink, borderColor: C.line },
+  authTabOn: { background: C.paper, color: C.ink, borderColor: C.line },
   formH1: { fontWeight: 600, fontSize: 34, letterSpacing: "-.025em", margin: "8px 0", color: C.ink },
   formSub: { color: C.sub, fontSize: 15, marginBottom: 28, lineHeight: 1.6 },
   field: { display: "block", marginBottom: 18 },
   fieldLabel: { display: "block", fontSize: 13, fontWeight: 500, marginBottom: 7, color: C.ink },
-  in: { width: "100%", padding: "11px 14px", border: `1px solid ${C.line}`, borderRadius: 8, fontSize: 15, background: "#fff", color: C.ink },
+  in: { width: "100%", padding: "11px 14px", border: `1px solid ${C.line}`, borderRadius: 10, fontSize: 15, background: C.paper, color: C.ink },
   pwWrap: { position: "relative" },
   pwToggle: { position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.accent, fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 },
   pwMeterRow: { display: "flex", alignItems: "center", gap: 5, marginTop: 9 },
@@ -1182,7 +1183,7 @@ const S = {
   pwMeterLabel: { fontSize: 12, fontWeight: 500, marginLeft: 4, minWidth: 28 },
   row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },
   errText: { color: C.sub, fontSize: 12, marginTop: 4, display: "block" },
-  consentWrap: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "4px 14px", margin: "4px 0 14px" },
+  consentWrap: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 10, padding: "4px 14px", margin: "4px 0 14px" },
   consentRow: { display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 0", cursor: "pointer" },
   consentDiv: { borderTop: `1px solid ${C.line}` },
   ageCheck: { width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: C.ink, cursor: "pointer" },
@@ -1196,16 +1197,16 @@ const S = {
   linkBtn: { background: "none", border: "none", color: C.accent, fontWeight: 500, cursor: "pointer", fontSize: 13.5, padding: 0 },
   code: { background: C.paperAlt, border: `1px solid ${C.line}`, padding: "1px 6px", borderRadius: 5, fontSize: 12.5, fontFamily: "ui-monospace, monospace" },
   snsRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 8 },
-  snsDel: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 8, width: 42, height: 42, fontSize: 14, color: C.sub, cursor: "pointer", flexShrink: 0 },
-  snsAdd: { background: "#fff", border: `1px dashed ${C.lineStrong}`, borderRadius: 8, padding: "9px 14px", fontSize: 13, color: C.sub, fontWeight: 500, cursor: "pointer", marginTop: 2 },
-  commToggleBox: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: 18, marginBottom: 18 },
+  snsDel: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 8, width: 42, height: 42, fontSize: 14, color: C.sub, cursor: "pointer", flexShrink: 0 },
+  snsAdd: { background: C.paper, border: `1px dashed ${C.lineStrong}`, borderRadius: 8, padding: "9px 14px", fontSize: 13, color: C.sub, fontWeight: 500, cursor: "pointer", marginTop: 2 },
+  commToggleBox: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 10, padding: 18, marginBottom: 18 },
   commToggle: { display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5, cursor: "pointer" },
 
-  msgCard: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: 18, marginBottom: 14 },
+  msgCard: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 12, padding: 18, marginBottom: 14 },
   msgHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   msgText: { color: C.sub, fontSize: 14, lineHeight: 1.6, margin: "0 0 12px" },
   statusChip: { background: C.ink, color: "#fff", padding: "2px 9px", borderRadius: 6, fontSize: 12, fontWeight: 500 },
-  statusChipPend: { background: "#fff", border: `1px solid ${C.line}`, color: C.sub, padding: "2px 9px", borderRadius: 6, fontSize: 12, fontWeight: 500 },
+  statusChipPend: { background: C.paper, border: `1px solid ${C.line}`, color: C.sub, padding: "2px 9px", borderRadius: 6, fontSize: 12, fontWeight: 500 },
   commChip: { background: C.paperAlt, border: `1px solid ${C.line}`, color: C.sub, padding: "2px 9px", borderRadius: 6, fontSize: 12, fontWeight: 500 },
   unlockChip: { background: C.paperAlt, border: `1px solid ${C.line}`, color: C.sub, padding: "2px 9px", borderRadius: 6, fontSize: 12, fontWeight: 500 },
   lineItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${C.line}` },
@@ -1219,11 +1220,11 @@ const S = {
   adminLockBig: { fontSize: 44, marginBottom: 8 },
   adminHead: { display: "flex", justifyContent: "space-between", alignItems: "center" },
   catAdminRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  catAdminChip: { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 8px 6px 12px", fontSize: 13, fontWeight: 500, color: C.ink },
+  catAdminChip: { display: "inline-flex", alignItems: "center", gap: 6, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 8px 6px 12px", fontSize: 13, fontWeight: 500, color: C.ink },
   catDel: { background: C.paperAlt, border: `1px solid ${C.line}`, borderRadius: "50%", width: 20, height: 20, fontSize: 11, color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   catAddRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 4 },
   statGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 8 },
-  statCard: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px 18px" },
+  statCard: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px 18px" },
   statCardWide: { gridColumn: "1 / -1", background: C.paperAlt, borderColor: C.lineStrong },
   statTop: { display: "flex", alignItems: "center", gap: 7, marginBottom: 10 },
   statIcon: { fontSize: 15, color: C.muted },
@@ -1232,11 +1233,11 @@ const S = {
   statHint: { fontSize: 11.5, color: C.muted, marginTop: 4 },
   meTag: { background: C.paperAlt, border: `1px solid ${C.line}`, color: C.sub, borderRadius: 6, fontSize: 10.5, fontWeight: 500, padding: "1px 7px", marginLeft: 6 },
   selfNote: { fontSize: 12, color: C.muted, flexShrink: 0, padding: "8px 4px" },
-  adminRow: { display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 8 },
+  adminRow: { display: "flex", alignItems: "center", gap: 12, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 8 },
   adminRowTitle: { fontSize: 14, fontWeight: 500, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   adminRowMeta: { fontSize: 12, color: C.muted, marginTop: 3 },
-  delBtn: { background: "#fff", border: `1px solid ${C.lineStrong}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, color: C.ink, fontWeight: 500, cursor: "pointer", flexShrink: 0 },
+  delBtn: { background: C.paper, border: `1px solid ${C.lineStrong}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, color: C.ink, fontWeight: 500, cursor: "pointer", flexShrink: 0 },
   confirmRow: { display: "flex", gap: 6, flexShrink: 0 },
   delConfirm: { background: C.ink, color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 500, cursor: "pointer" },
-  delCancel: { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: C.sub, cursor: "pointer" },
+  delCancel: { background: C.paper, border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: C.sub, cursor: "pointer" },
 };
