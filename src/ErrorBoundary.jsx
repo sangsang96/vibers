@@ -62,35 +62,36 @@ function copy(text) {
   }
 }
 
-const INK = "#1f1c18";
-const SUB = "#6b655c";
+const INK = "#0A0A0A";
+const SUB = "#52525B";
+const LINE = "#EAEAEA";
 const S = {
   wrap: {
-    minHeight: "100vh", background: "#f1ede4", color: INK,
+    minHeight: "100vh", background: "#FFFFFF", color: INK,
     display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    fontFamily: "'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif",
+    fontFamily: "'Pretendard', -apple-system, 'Apple SD Gothic Neo', system-ui, sans-serif",
   },
   card: {
-    background: "#fbfaf6", border: "1px solid #e3ddd0", borderRadius: 20,
+    background: "#FFFFFF", border: `1px solid ${LINE}`, borderRadius: 14,
     padding: 32, maxWidth: 520, width: "100%",
-    boxShadow: "0 10px 24px rgba(31,28,24,.12), 0 40px 90px rgba(31,28,24,.16)",
+    boxShadow: "0 10px 40px rgba(0,0,0,.14)",
   },
   icon: { fontSize: 40, marginBottom: 8 },
-  h1: { fontSize: 24, fontWeight: 800, margin: "6px 0 10px" },
+  h1: { fontSize: 24, fontWeight: 600, letterSpacing: "-.02em", margin: "6px 0 10px" },
   p: { color: SUB, fontSize: 14.5, lineHeight: 1.7, margin: "0 0 20px" },
   btnRow: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 },
   primary: {
-    background: "#c4543a", color: "#fff", border: "none", borderRadius: 11,
-    padding: "10px 18px", fontSize: 14, fontWeight: 700, cursor: "pointer",
+    background: INK, color: "#fff", border: "none", borderRadius: 8,
+    padding: "10px 18px", fontSize: 14, fontWeight: 500, cursor: "pointer",
   },
   ghost: {
-    background: "#fbfaf6", color: SUB, border: "1px solid #e3ddd0", borderRadius: 11,
+    background: "#FFFFFF", color: INK, border: `1px solid #D4D4D8`, borderRadius: 8,
     padding: "10px 16px", fontSize: 14, cursor: "pointer",
   },
-  details: { borderTop: "1px solid #e3ddd0", paddingTop: 14 },
-  summary: { cursor: "pointer", fontSize: 13, color: SUB, fontWeight: 700 },
+  details: { borderTop: `1px solid ${LINE}`, paddingTop: 14 },
+  summary: { cursor: "pointer", fontSize: 13, color: SUB, fontWeight: 500 },
   pre: {
-    marginTop: 10, background: "#efe9dd", borderRadius: 10, padding: 14,
+    marginTop: 10, background: "#FAFAFA", border: `1px solid ${LINE}`, borderRadius: 8, padding: 14,
     fontSize: 11.5, lineHeight: 1.5, color: INK, overflowX: "auto",
     whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 240,
   },

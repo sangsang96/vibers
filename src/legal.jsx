@@ -408,24 +408,25 @@ export function LegalModal({ doc, onClose }) {
   );
 }
 
-const INK = "#1f1c18", SUB = "#6b655c", LINE = "#e3ddd0", PAPER = "#fbfaf6", ACCENT = "#c4543a", CHIP = "#efe9dd";
+const INK = "#0A0A0A", SUB = "#52525B", LINE = "#EAEAEA", PAPER = "#FFFFFF", ACCENT = "#3F5B8B", CHIP = "#F4F4F5";
+const BODYTXT = "#3F3F46";
 const LS = {
-  bg: { position: "fixed", inset: 0, background: "rgba(31,28,24,.5)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 },
-  modal: { background: PAPER, borderRadius: 20, maxWidth: 720, width: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 24px rgba(31,28,24,.2), 0 40px 90px rgba(31,28,24,.3)", overflow: "hidden" },
+  bg: { position: "fixed", inset: 0, background: "rgba(10,10,10,.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 },
+  modal: { background: PAPER, border: `1px solid ${LINE}`, borderRadius: 14, maxWidth: 720, width: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 40px rgba(0,0,0,.14)", overflow: "hidden" },
   head: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 22px", borderBottom: `1px solid ${LINE}`, flexShrink: 0 },
-  headTitle: { fontWeight: 800, fontSize: 17, color: INK },
-  close: { background: CHIP, border: "none", borderRadius: 9, width: 34, height: 34, fontSize: 15, color: SUB, cursor: "pointer" },
-  body: { padding: "8px 24px 28px", overflowY: "auto", fontFamily: "'IBM Plex Sans KR','Apple SD Gothic Neo',sans-serif", color: INK, lineHeight: 1.7 },
-  h1: { fontSize: 21, fontWeight: 800, margin: "20px 0 6px", lineHeight: 1.3 },
-  h2: { fontSize: 16, fontWeight: 800, margin: "26px 0 6px", color: INK },
-  h3: { fontSize: 14.5, fontWeight: 700, margin: "18px 0 4px", color: INK },
-  p: { fontSize: 13.5, color: "#3a352e", margin: "8px 0" },
+  headTitle: { fontWeight: 600, fontSize: 17, letterSpacing: "-.01em", color: INK },
+  close: { background: CHIP, border: `1px solid ${LINE}`, borderRadius: 8, width: 34, height: 34, fontSize: 15, color: SUB, cursor: "pointer" },
+  body: { padding: "8px 24px 28px", overflowY: "auto", fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif", color: INK, lineHeight: 1.7 },
+  h1: { fontSize: 22, fontWeight: 600, letterSpacing: "-.02em", margin: "20px 0 6px", lineHeight: 1.3 },
+  h2: { fontSize: 16, fontWeight: 600, margin: "26px 0 6px", color: INK },
+  h3: { fontSize: 14.5, fontWeight: 500, margin: "18px 0 4px", color: INK },
+  p: { fontSize: 13.5, color: BODYTXT, margin: "8px 0" },
   list: { margin: "6px 0" },
-  li: { display: "flex", gap: 8, fontSize: 13.5, color: "#3a352e", margin: "3px 0", lineHeight: 1.6 },
-  marker: { color: ACCENT, fontWeight: 700, flexShrink: 0, minWidth: 16 },
+  li: { display: "flex", gap: 8, fontSize: 13.5, color: BODYTXT, margin: "3px 0", lineHeight: 1.6 },
+  marker: { color: SUB, fontWeight: 500, flexShrink: 0, minWidth: 16 },
   hr: { border: "none", borderTop: `1px solid ${LINE}`, margin: "22px 0" },
-  tableWrap: { overflowX: "auto", margin: "12px 0", border: `1px solid ${LINE}`, borderRadius: 10 },
+  tableWrap: { overflowX: "auto", margin: "12px 0", border: `1px solid ${LINE}`, borderRadius: 8 },
   table: { borderCollapse: "collapse", width: "100%", fontSize: 12.5 },
-  th: { textAlign: "left", padding: "9px 12px", background: CHIP, color: SUB, fontWeight: 700, borderBottom: `1px solid ${LINE}`, whiteSpace: "nowrap" },
-  td: { padding: "9px 12px", borderBottom: `1px solid ${LINE}`, color: "#3a352e", verticalAlign: "top" },
+  th: { textAlign: "left", padding: "9px 12px", background: CHIP, color: SUB, fontWeight: 500, borderBottom: `1px solid ${LINE}`, whiteSpace: "nowrap" },
+  td: { padding: "9px 12px", borderBottom: `1px solid ${LINE}`, color: BODYTXT, verticalAlign: "top" },
 };
